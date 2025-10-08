@@ -51,6 +51,11 @@ func main() {
 		v1.POST("/feed", handlers.CreateFeed)
 		v1.GET("/feeds", handlers.GetFeeds)
 		v1.DELETE("/feeds", handlers.DeleteAllFeeds)
+		
+		// Settings routes
+		v1.GET("/settings", handlers.GetSettings)
+		v1.PUT("/settings", handlers.UpdateSettings)
+		v1.POST("/settings/reset", handlers.ResetSettings)
 	}
 	log.Println("Routes configured")
 

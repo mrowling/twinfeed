@@ -22,3 +22,15 @@ export interface AppState {
 
 export type Twin = 'A' | 'B'
 export type Side = 'Left' | 'Right'
+
+export interface UserSettings {
+    id?: number
+    twin_a_name: string
+    twin_b_name: string
+    twin_a_color: string
+    twin_b_color: string
+    default_timer_interval: number
+    theme: string
+    created_at?: string
+    updated_at?: string
+}
