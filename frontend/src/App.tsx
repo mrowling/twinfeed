@@ -5,18 +5,18 @@ import ReportPage from './pages/ReportPage'
 import SettingsPage from './pages/SettingsPage'
 
 function App() {
-  return (
-    <div className="min-h-screen bg-neutral-50">
-      <Navigation />
-      <main className="container mx-auto px-4 py-6 max-w-md">
-        <Routes>
-          <Route path="/" element={<TrackerPage />} />
-          <Route path="/report" element={<ReportPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-        </Routes>
-      </main>
-    </div>
-  )
+    return (
+        <div className="min-h-screen bg-neutral-50">
+            <Navigation />
+            <main className="container mx-auto px-4 py-6 max-w-md">
+                <Routes>
+                    <Route path="/" element={<TrackerPage />} />
+                    <Route path="/report" element={<ReportPage />} />
+                    <Route path="/settings" element={<SettingsPage />} />
+                </Routes>
+            </main>
+        </div>
+    )
 }
 
 export default App

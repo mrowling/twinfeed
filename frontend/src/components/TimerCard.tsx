@@ -2,30 +2,30 @@ import { useRealtimeTimer } from '@/hooks/useRealtimeTimer'
 import type { Twin, Side } from '@/types'
 
 interface TimerCardProps {
-  twin: Twin
-  isRunning: boolean
-  currentSide: Side | null
-  onStart: (side: Side) => void
-  onPause: () => void
-  onSave: () => void
+    twin: Twin
+    isRunning: boolean
+    currentSide: Side | null
+    onStart: (side: Side) => void
+    onPause: () => void
+    onSave: () => void
 }
 
-function TimerCard({ 
-  twin, 
-  isRunning, 
-  currentSide, 
-  onStart, 
-  onPause, 
-  onSave 
+function TimerCard({
+    twin,
+    isRunning,
+    currentSide,
+    onStart,
+    onPause,
+    onSave
 }: TimerCardProps) {
-  const displayTime = useRealtimeTimer(twin)
-  
-  // Get custom twin names from localStorage
-  const twinName = twin === 'A' 
-    ? localStorage.getItem('twinAName') || 'Twin A'
-    : localStorage.getItem('twinBName') || 'Twin B'
+    const displayTime = useRealtimeTimer(twin)
 
-  const handleSideClick = (side: Side) => {
+    // Get custom twin names from localStorage
+    const twinName = twin === 'A'
+        ? localStorage.getItem('twinAName') || 'Twin A'
+        : localStorage.getItem('twinBName') || 'Twin B'
+
+    const handleSideClick = (side: Side) => {
         if (isRunning && currentSide === side) {
             onPause()
         } else {
@@ -37,16 +37,16 @@ function TimerCard({
 
     return (
         <div className="card">
-      <div className="text-center mb-4">
-        <h3 className="text-lg font-semibold text-neutral-700">
-          {twinName}
-        </h3>
-        {currentSide && (
-          <p className="text-sm text-neutral-500 mt-1">
-            Feeding on {currentSide} side
-          </p>
-        )}
-      </div>            <div className="text-center mb-6">
+            <div className="text-center mb-4">
+                <h3 className="text-lg font-semibold text-neutral-700">
+                    {twinName}
+                </h3>
+                {currentSide && (
+                    <p className="text-sm text-neutral-500 mt-1">
+                        Feeding on {currentSide} side
+                    </p>
+                )}
+            </div>            <div className="text-center mb-6">
                 <div className={`timer-display transition-colors duration-200 ${isRunning ? 'text-primary-600 animate-pulse' : 'text-neutral-800'
                     }`}>
                     {displayTime}
@@ -62,10 +62,10 @@ function TimerCard({
                 <button
                     onClick={() => handleSideClick('Left')}
                     className={`py-3 px-4 rounded-xl font-medium transition-all duration-200 ${currentSide === 'Left'
-                            ? isRunning
-                                ? 'bg-primary-500 text-white shadow-soft'
-                                : 'bg-primary-100 text-primary-700 border-2 border-primary-200'
-                            : 'btn-secondary'
+                        ? isRunning
+                            ? 'bg-primary-500 text-white shadow-soft'
+                            : 'bg-primary-100 text-primary-700 border-2 border-primary-200'
+                        : 'btn-secondary'
                         }`}
                 >
                     Left
@@ -73,10 +73,10 @@ function TimerCard({
                 <button
                     onClick={() => handleSideClick('Right')}
                     className={`py-3 px-4 rounded-xl font-medium transition-all duration-200 ${currentSide === 'Right'
-                            ? isRunning
-                                ? 'bg-primary-500 text-white shadow-soft'
-                                : 'bg-primary-100 text-primary-700 border-2 border-primary-200'
-                            : 'btn-secondary'
+                        ? isRunning
+                            ? 'bg-primary-500 text-white shadow-soft'
+                            : 'bg-primary-100 text-primary-700 border-2 border-primary-200'
+                        : 'btn-secondary'
                         }`}
                 >
                     Right
@@ -88,8 +88,8 @@ function TimerCard({
                     onClick={onPause}
                     disabled={!isRunning}
                     className={`px-6 py-3 rounded-xl font-medium transition-colors duration-200 ${isRunning
-                            ? 'bg-neutral-600 hover:bg-neutral-700 text-white shadow-soft'
-                            : 'bg-neutral-200 text-neutral-400 cursor-not-allowed'
+                        ? 'bg-neutral-600 hover:bg-neutral-700 text-white shadow-soft'
+                        : 'bg-neutral-200 text-neutral-400 cursor-not-allowed'
                         }`}
                 >
                     {isRunning ? 'Pause' : 'Paused'}
@@ -98,8 +98,8 @@ function TimerCard({
                     onClick={onSave}
                     disabled={!canSave}
                     className={`px-6 py-3 rounded-xl font-medium transition-colors duration-200 ${canSave
-                            ? 'btn-success'
-                            : 'bg-neutral-200 text-neutral-400 cursor-not-allowed'
+                        ? 'btn-success'
+                        : 'bg-neutral-200 text-neutral-400 cursor-not-allowed'
                         }`}
                 >
                     Save
