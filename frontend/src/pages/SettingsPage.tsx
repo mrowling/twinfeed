@@ -1,16 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Badge } from '@/components/ui/badge'
 import { useTimerStore } from "@/store/timerStore";
 import { useApiSync } from "@/hooks/useApiSync";
 import { useTheme } from "@/components/theme-provider";
@@ -24,7 +17,6 @@ function SettingsPage() {
   const {
     settings: remoteSettings,
     isLoading: isSettingsLoading,
-    error: settingsError,
     updateSettings,
     resetSettings: resetRemoteSettings,
   } = useSettings();

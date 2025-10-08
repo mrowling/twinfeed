@@ -78,7 +78,7 @@ export const useTimerStore = create<TimerStore>()(
       },
 
       resetTimer: (twin: Twin) => {
-        set((state) => ({
+        set((_state) => ({
           [`twin${twin}`]: { ...initialTimerState },
         }));
       },
@@ -109,11 +109,11 @@ export const useTimerStore = create<TimerStore>()(
           start_time: startTime.toISOString(),
         };
 
-        // Add to sessions and reset timer
-        set((state) => ({
-          sessions: [session, ...state.sessions],
-          [`twin${twin}`]: { ...initialTimerState },
-        }));
+                        // Add to sessions and reset timer
+                set((_state) => ({
+                    sessions: [session, ...get().sessions],
+                    [`twin${twin}`]: { ...initialTimerState },
+                }));
 
         return session;
       },
