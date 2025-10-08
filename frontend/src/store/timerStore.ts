@@ -24,6 +24,7 @@ interface TimerStore {
     // Utility
     getFormattedTime: (twin: Twin) => string
     getCurrentDuration: (twin: Twin) => number
+    getSuggestedNextSide: (twin: Twin) => Side | null
 }
 
 const initialTimerState: TimerState = {
@@ -154,6 +155,20 @@ export const useTimerStore = create<TimerStore>()(
                 }
 
                 return totalSeconds
+            },
+
+            getSuggestedNextSide: (twin: Twin) => {
+                const state = get()
+                // Find the most recent session for this twin
+                const lastSession = state.sessions.find(session => session.twin === twin)
+
+                // If no previous session, no suggestion
+                if (!lastSession) {
+                    return null
+                }
+
+                // Suggest the opposite side from last time
+                return lastSession.side === 'Left' ? 'Right' : 'Left'
             },
         }),
         {

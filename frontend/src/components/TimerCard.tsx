@@ -10,6 +10,7 @@ interface TimerCardProps {
     twin: Twin
     isRunning: boolean
     currentSide: Side | null
+    suggestedSide: Side | null
     onStart: (side: Side) => void
     onPause: () => void
     onSave: () => void
@@ -20,6 +21,7 @@ function TimerCard({
     twin,
     isRunning,
     currentSide,
+    suggestedSide,
     onStart,
     onPause,
     onSave,
@@ -50,8 +52,14 @@ function TimerCard({
         }
     }
 
+    const handleSaveClick = () => {
+        if (isRunning) {
+            onPause() // Stop the timer first
+        }
+        onSave() // Then save the session
+    }
+
     const canSave = currentSide !== null && displayTime !== '00:00:00'
-    const canReset = true // Always allow reset
 
     return (
         <Card className="w-full relative">
@@ -94,7 +102,10 @@ function TimerCard({
                         onClick={() => handleSideClick('Left')}
                         variant={currentSide === 'Left' ? (isRunning ? 'default' : 'secondary') : 'outline'}
                         size="lg"
-                        className="h-12"
+                        className={`h-12 ${suggestedSide === 'Left' && currentSide !== 'Left'
+                            ? 'ring-2 ring-blue-500 ring-offset-2 border-blue-300'
+                            : ''
+                            }`}
                     >
                         Left
                     </Button>
@@ -102,7 +113,10 @@ function TimerCard({
                         onClick={() => handleSideClick('Right')}
                         variant={currentSide === 'Right' ? (isRunning ? 'default' : 'secondary') : 'outline'}
                         size="lg"
-                        className="h-12"
+                        className={`h-12 ${suggestedSide === 'Right' && currentSide !== 'Right'
+                            ? 'ring-2 ring-blue-500 ring-offset-2 border-blue-300'
+                            : ''
+                            }`}
                     >
                         Right
                     </Button>
@@ -118,7 +132,7 @@ function TimerCard({
                         <Pause className="h-4 w-4" />
                     </Button>
                     <Button
-                        onClick={onSave}
+                        onClick={handleSaveClick}
                         disabled={!canSave}
                         variant="default"
                         size="lg"
@@ -126,17 +140,15 @@ function TimerCard({
                     >
                         <Save className="h-4 w-4" />
                     </Button>
-                    {canReset && (
-                        <Button
-                            onClick={handleResetClick}
-                            disabled={isRunning}
-                            variant="outline"
-                            size="lg"
-                            className="text-red-500 hover:text-red-700 border-red-200 hover:border-red-300 hover:bg-red-50 dark:border-red-800 dark:hover:border-red-700 dark:hover:bg-red-950"
-                        >
-                            <Trash2 className="h-4 w-4" />
-                        </Button>
-                    )}
+                    <Button
+                        onClick={handleResetClick}
+                        disabled={isRunning}
+                        variant="outline"
+                        size="lg"
+                        className="text-red-500 hover:text-red-700 border-red-200 hover:border-red-300 hover:bg-red-50 dark:border-red-800 dark:hover:border-red-700 dark:hover:bg-red-950"
+                    >
+                        <Trash2 className="h-4 w-4" />
+                    </Button>
                 </div>
 
                 {showResetConfirm && (

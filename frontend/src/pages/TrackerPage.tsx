@@ -13,6 +13,7 @@ function TrackerPage() {
         pauseTimer,
         resetTimer,
         saveSession: saveLocalSession,
+        getSuggestedNextSide,
     } = useTimerStore()
 
     const { saveSession: saveToApi, error, retry } = useApiSync()
@@ -80,6 +81,7 @@ function TrackerPage() {
                     twin="A"
                     isRunning={twinA.isRunning}
                     currentSide={twinA.side}
+                    suggestedSide={getSuggestedNextSide('A')}
                     onStart={(side) => handleStartTimer('A', side)}
                     onPause={() => handlePauseTimer('A')}
                     onSave={() => handleSaveSession('A')}
@@ -90,6 +92,7 @@ function TrackerPage() {
                     twin="B"
                     isRunning={twinB.isRunning}
                     currentSide={twinB.side}
+                    suggestedSide={getSuggestedNextSide('B')}
                     onStart={(side) => handleStartTimer('B', side)}
                     onPause={() => handlePauseTimer('B')}
                     onSave={() => handleSaveSession('B')}
