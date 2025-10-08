@@ -3,9 +3,13 @@ import { useApiSync } from '@/hooks/useApiSync'
 import type { FeedSession } from '@/types'
 
 function ReportPage() {
-    const { sessions, clearAllSessions, isLoading, error, retry } = useApiSync()
+  const { sessions, clearAllSessions, isLoading, error, retry } = useApiSync()
+  
+  // Get custom twin names from localStorage
+  const twinAName = localStorage.getItem('twinAName') || 'Twin A'
+  const twinBName = localStorage.getItem('twinBName') || 'Twin B'
 
-    // Group sessions by date
+  // Group sessions by date
     const groupedSessions = sessions.reduce((groups: Record<string, FeedSession[]>, session: FeedSession) => {
         const date = format(parseISO(session.start_time), 'yyyy-MM-dd')
         if (!groups[date]) {
@@ -158,7 +162,7 @@ function ReportPage() {
                                                         }`} />
                                                     <div>
                                                         <div className="font-medium text-neutral-800">
-                                                            Twin {session.twin} • {session.side}
+                                                            {session.twin === 'A' ? twinAName : twinBName} • {session.side}
                                                         </div>
                                                         <div className="text-sm text-neutral-500">
                                                             {formatTime(session.start_time)}

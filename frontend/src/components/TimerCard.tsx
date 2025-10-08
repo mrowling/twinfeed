@@ -2,25 +2,30 @@ import { useRealtimeTimer } from '@/hooks/useRealtimeTimer'
 import type { Twin, Side } from '@/types'
 
 interface TimerCardProps {
-    twin: Twin
-    isRunning: boolean
-    currentSide: Side | null
-    onStart: (side: Side) => void
-    onPause: () => void
-    onSave: () => void
+  twin: Twin
+  isRunning: boolean
+  currentSide: Side | null
+  onStart: (side: Side) => void
+  onPause: () => void
+  onSave: () => void
 }
 
-function TimerCard({
-    twin,
-    isRunning,
-    currentSide,
-    onStart,
-    onPause,
-    onSave
+function TimerCard({ 
+  twin, 
+  isRunning, 
+  currentSide, 
+  onStart, 
+  onPause, 
+  onSave 
 }: TimerCardProps) {
-    const displayTime = useRealtimeTimer(twin)
+  const displayTime = useRealtimeTimer(twin)
+  
+  // Get custom twin names from localStorage
+  const twinName = twin === 'A' 
+    ? localStorage.getItem('twinAName') || 'Twin A'
+    : localStorage.getItem('twinBName') || 'Twin B'
 
-    const handleSideClick = (side: Side) => {
+  const handleSideClick = (side: Side) => {
         if (isRunning && currentSide === side) {
             onPause()
         } else {
@@ -32,18 +37,16 @@ function TimerCard({
 
     return (
         <div className="card">
-            <div className="text-center mb-4">
-                <h3 className="text-lg font-semibold text-neutral-700">
-                    Twin {twin}
-                </h3>
-                {currentSide && (
-                    <p className="text-sm text-neutral-500 mt-1">
-                        Feeding on {currentSide} side
-                    </p>
-                )}
-            </div>
-
-            <div className="text-center mb-6">
+      <div className="text-center mb-4">
+        <h3 className="text-lg font-semibold text-neutral-700">
+          {twinName}
+        </h3>
+        {currentSide && (
+          <p className="text-sm text-neutral-500 mt-1">
+            Feeding on {currentSide} side
+          </p>
+        )}
+      </div>            <div className="text-center mb-6">
                 <div className={`timer-display transition-colors duration-200 ${isRunning ? 'text-primary-600 animate-pulse' : 'text-neutral-800'
                     }`}>
                     {displayTime}

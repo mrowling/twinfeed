@@ -15,21 +15,30 @@ function Navigation() {
                     <div className="flex space-x-1">
                         <Link
                             to="/"
-                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${location.pathname === '/'
-                                    ? 'bg-primary-100 text-primary-700'
-                                    : 'text-neutral-600 hover:text-neutral-800 hover:bg-neutral-100'
+                            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${location.pathname === '/'
+                                ? 'bg-primary-100 text-primary-700'
+                                : 'text-neutral-600 hover:text-neutral-800 hover:bg-neutral-100'
                                 }`}
                         >
                             Timer
                         </Link>
                         <Link
                             to="/report"
-                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${location.pathname === '/report'
-                                    ? 'bg-primary-100 text-primary-700'
-                                    : 'text-neutral-600 hover:text-neutral-800 hover:bg-neutral-100'
+                            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${location.pathname === '/report'
+                                ? 'bg-primary-100 text-primary-700'
+                                : 'text-neutral-600 hover:text-neutral-800 hover:bg-neutral-100'
                                 }`}
                         >
                             Report
+                        </Link>
+                        <Link
+                            to="/settings"
+                            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${location.pathname === '/settings'
+                                ? 'bg-primary-100 text-primary-700'
+                                : 'text-neutral-600 hover:text-neutral-800 hover:bg-neutral-100'
+                                }`}
+                        >
+                            Settings
                         </Link>
                     </div>
                 </div>
