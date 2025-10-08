@@ -11,6 +11,7 @@ function TrackerPage() {
         twinB,
         startTimer,
         pauseTimer,
+        resetTimer,
         saveSession: saveLocalSession,
     } = useTimerStore()
 
@@ -22,6 +23,10 @@ function TrackerPage() {
 
     const handlePauseTimer = (twin: 'A' | 'B') => {
         pauseTimer(twin)
+    }
+
+    const handleResetTimer = (twin: 'A' | 'B') => {
+        resetTimer(twin)
     }
 
     const handleSaveSession = async (twin: 'A' | 'B') => {
@@ -78,6 +83,7 @@ function TrackerPage() {
                     onStart={(side) => handleStartTimer('A', side)}
                     onPause={() => handlePauseTimer('A')}
                     onSave={() => handleSaveSession('A')}
+                    onReset={() => handleResetTimer('A')}
                 />
 
                 <TimerCard
@@ -87,6 +93,7 @@ function TrackerPage() {
                     onStart={(side) => handleStartTimer('B', side)}
                     onPause={() => handlePauseTimer('B')}
                     onSave={() => handleSaveSession('B')}
+                    onReset={() => handleResetTimer('B')}
                 />
             </div>
         </div>
