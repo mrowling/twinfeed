@@ -1,6 +1,9 @@
 import TimerCard from '@/components/TimerCard'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
 import { useTimerStore } from '@/store/timerStore'
 import { useApiSync } from '@/hooks/useApiSync'
+import { AlertTriangle } from 'lucide-react'
 
 function TrackerPage() {
     const {
@@ -38,27 +41,31 @@ function TrackerPage() {
         <div className="space-y-6">
             {/* Error Banner */}
             {error && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2">
-                            <div className="text-red-600">⚠️</div>
-                            <div className="text-sm text-red-700">{error}</div>
+                <Card className="border-destructive">
+                    <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                                <AlertTriangle className="h-4 w-4 text-destructive" />
+                                <div className="text-sm text-destructive">{error}</div>
+                            </div>
+                            <Button
+                                onClick={retry}
+                                variant="ghost"
+                                size="sm"
+                                className="text-destructive hover:text-destructive/80"
+                            >
+                                Retry
+                            </Button>
                         </div>
-                        <button
-                            onClick={retry}
-                            className="text-sm text-red-600 hover:text-red-700 font-medium"
-                        >
-                            Retry
-                        </button>
-                    </div>
-                </div>
+                    </CardContent>
+                </Card>
             )}
 
             <div className="text-center">
-                <h2 className="text-2xl font-bold text-neutral-800 mb-2">
+                <h2 className="text-2xl font-bold text-foreground mb-2">
                     Twin Feeding Tracker
                 </h2>
-                <p className="text-neutral-600">
+                <p className="text-muted-foreground">
                     Track feeding sessions for both twins
                 </p>
             </div>

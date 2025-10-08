@@ -1,4 +1,7 @@
 import { useRealtimeTimer } from '@/hooks/useRealtimeTimer'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import type { Twin, Side } from '@/types'
 
 interface TimerCardProps {
@@ -36,76 +39,70 @@ function TimerCard({
     const canSave = currentSide !== null && displayTime !== '00:00:00'
 
     return (
-        <div className="card">
-            <div className="text-center mb-4">
-                <h3 className="text-lg font-semibold text-neutral-700">
-                    {twinName}
-                </h3>
+        <Card className="w-full">
+            <CardHeader className="text-center pb-2">
+                <CardTitle className="text-lg">{twinName}</CardTitle>
                 {currentSide && (
-                    <p className="text-sm text-neutral-500 mt-1">
+                    <Badge variant="outline" className="mx-auto w-fit">
                         Feeding on {currentSide} side
-                    </p>
+                    </Badge>
                 )}
-            </div>            <div className="text-center mb-6">
-                <div className={`timer-display transition-colors duration-200 ${isRunning ? 'text-primary-600 animate-pulse' : 'text-neutral-800'
+            </CardHeader>
+            <CardContent className="space-y-6">
+                <div className="text-center">
+                    <div className={`text-4xl font-mono font-bold transition-colors duration-200 ${
+                        isRunning ? 'text-primary animate-pulse' : 'text-foreground'
                     }`}>
-                    {displayTime}
-                </div>
-                {isRunning && (
-                    <div className="text-xs text-primary-500 mt-1 animate-pulse">
-                        ● Recording...
+                        {displayTime}
                     </div>
-                )}
-            </div>
+                    {isRunning && (
+                        <div className="text-xs text-primary mt-1 animate-pulse flex items-center justify-center gap-1">
+                            <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse"></div>
+                            Recording...
+                        </div>
+                    )}
+                </div>
 
-            <div className="grid grid-cols-2 gap-3 mb-4">
-                <button
-                    onClick={() => handleSideClick('Left')}
-                    className={`py-3 px-4 rounded-xl font-medium transition-all duration-200 ${currentSide === 'Left'
-                        ? isRunning
-                            ? 'bg-primary-500 text-white shadow-soft'
-                            : 'bg-primary-100 text-primary-700 border-2 border-primary-200'
-                        : 'btn-secondary'
-                        }`}
-                >
-                    Left
-                </button>
-                <button
-                    onClick={() => handleSideClick('Right')}
-                    className={`py-3 px-4 rounded-xl font-medium transition-all duration-200 ${currentSide === 'Right'
-                        ? isRunning
-                            ? 'bg-primary-500 text-white shadow-soft'
-                            : 'bg-primary-100 text-primary-700 border-2 border-primary-200'
-                        : 'btn-secondary'
-                        }`}
-                >
-                    Right
-                </button>
-            </div>
+                <div className="grid grid-cols-2 gap-3">
+                    <Button
+                        onClick={() => handleSideClick('Left')}
+                        variant={currentSide === 'Left' ? (isRunning ? 'default' : 'secondary') : 'outline'}
+                        size="lg"
+                        className="h-12"
+                    >
+                        Left
+                    </Button>
+                    <Button
+                        onClick={() => handleSideClick('Right')}
+                        variant={currentSide === 'Right' ? (isRunning ? 'default' : 'secondary') : 'outline'}
+                        size="lg"
+                        className="h-12"
+                    >
+                        Right
+                    </Button>
+                </div>
 
-            <div className="flex justify-center space-x-3">
-                <button
-                    onClick={onPause}
-                    disabled={!isRunning}
-                    className={`px-6 py-3 rounded-xl font-medium transition-colors duration-200 ${isRunning
-                        ? 'bg-neutral-600 hover:bg-neutral-700 text-white shadow-soft'
-                        : 'bg-neutral-200 text-neutral-400 cursor-not-allowed'
-                        }`}
-                >
-                    {isRunning ? 'Pause' : 'Paused'}
-                </button>
-                <button
-                    onClick={onSave}
-                    disabled={!canSave}
-                    className={`px-6 py-3 rounded-xl font-medium transition-colors duration-200 ${canSave
-                        ? 'btn-success'
-                        : 'bg-neutral-200 text-neutral-400 cursor-not-allowed'
-                        }`}
-                >
-                    Save
-                </button>
-            </div>
-        </div>
+                <div className="flex justify-center space-x-3">
+                    <Button
+                        onClick={onPause}
+                        disabled={!isRunning}
+                        variant="outline"
+                        size="lg"
+                    >
+                        {isRunning ? 'Pause' : 'Paused'}
+                    </Button>
+                    <Button
+                        onClick={onSave}
+                        disabled={!canSave}
+                        variant="default"
+                        size="lg"
+                        className="bg-green-600 hover:bg-green-700"
+                    >
+                        Save
+                    </Button>
+                </div>
+            </CardContent>
+        </Card>
     )
 }
 

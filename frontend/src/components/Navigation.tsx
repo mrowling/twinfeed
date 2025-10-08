@@ -1,45 +1,39 @@
 import { Link, useLocation } from 'react-router-dom'
+import { Button } from '@/components/ui/button'
+import { ThemeToggle } from '@/components/theme-toggle'
 
 function Navigation() {
     const location = useLocation()
 
+    const navItems = [
+        { path: '/', label: 'Timer' },
+        { path: '/report', label: 'Report' },
+        { path: '/settings', label: 'Settings' }
+    ]
+
     return (
-        <nav className="bg-white shadow-soft border-b border-neutral-200">
+        <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
             <div className="container mx-auto px-4 max-w-md">
                 <div className="flex items-center justify-between h-16">
                     <div className="flex items-center space-x-4">
-                        <h1 className="text-xl font-bold text-neutral-800">
+                        <h1 className="text-xl font-bold text-foreground">
                             🍼 TwinFeed
                         </h1>
                     </div>
-                    <div className="flex space-x-1">
-                        <Link
-                            to="/"
-                            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${location.pathname === '/'
-                                ? 'bg-primary-100 text-primary-700'
-                                : 'text-neutral-600 hover:text-neutral-800 hover:bg-neutral-100'
-                                }`}
-                        >
-                            Timer
-                        </Link>
-                        <Link
-                            to="/report"
-                            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${location.pathname === '/report'
-                                ? 'bg-primary-100 text-primary-700'
-                                : 'text-neutral-600 hover:text-neutral-800 hover:bg-neutral-100'
-                                }`}
-                        >
-                            Report
-                        </Link>
-                        <Link
-                            to="/settings"
-                            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${location.pathname === '/settings'
-                                ? 'bg-primary-100 text-primary-700'
-                                : 'text-neutral-600 hover:text-neutral-800 hover:bg-neutral-100'
-                                }`}
-                        >
-                            Settings
-                        </Link>
+                    <div className="flex items-center space-x-1">
+                        {navItems.map((item) => (
+                            <Button
+                                key={item.path}
+                                asChild
+                                variant={location.pathname === item.path ? 'default' : 'ghost'}
+                                size="sm"
+                            >
+                                <Link to={item.path}>
+                                    {item.label}
+                                </Link>
+                            </Button>
+                        ))}
+                        <ThemeToggle />
                     </div>
                 </div>
             </div>
