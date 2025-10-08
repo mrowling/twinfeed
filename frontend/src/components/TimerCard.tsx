@@ -50,16 +50,20 @@ function TimerCard({
             </CardHeader>
             <CardContent className="space-y-6">
                 <div className="text-center">
-                    <div className={`text-4xl font-mono font-bold transition-colors duration-200 ${isRunning ? 'text-primary animate-pulse' : 'text-foreground'
+                    <div className={`text-4xl font-mono font-bold transition-colors duration-200 ${isRunning ? 'text-primary' : 'text-foreground'
                         }`}>
                         {displayTime}
                     </div>
-                    {isRunning && (
-                        <div className="text-xs text-primary mt-1 animate-pulse flex items-center justify-center gap-1">
-                            <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse"></div>
-                            Recording...
-                        </div>
-                    )}
+                    <div className="text-xs mt-1 h-4 flex items-center justify-center gap-1">
+                        {isRunning ? (
+                            <>
+                                <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse"></div>
+                                <span className="text-primary">Recording...</span>
+                            </>
+                        ) : (
+                            <span className="invisible">Recording...</span>
+                        )}
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">

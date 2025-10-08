@@ -10,7 +10,7 @@ function App() {
         <ThemeProvider defaultTheme="system" storageKey="twinfeeder-ui-theme">
             <div className="min-h-screen bg-background">
                 <Navigation />
-                <main className="container mx-auto px-4 py-6 max-w-md">
+                <main className="container mx-auto px-4 py-6 max-w-md sm:max-w-2xl">
                     <Routes>
                         <Route path="/" element={<TrackerPage />} />
                         <Route path="/report" element={<ReportPage />} />

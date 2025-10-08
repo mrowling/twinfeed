@@ -13,20 +13,21 @@ function Navigation() {
 
     return (
         <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-            <div className="container mx-auto px-4 max-w-md">
-                <div className="flex items-center justify-between h-16">
-                    <div className="flex items-center space-x-4">
-                        <h1 className="text-xl font-bold text-foreground">
+            <div className="container mx-auto px-3 max-w-md">
+                <div className="flex items-center justify-between h-12">
+                    <div className="flex items-center">
+                        <h1 className="text-lg font-bold text-foreground">
                             🍼 TwinFeed
                         </h1>
                     </div>
-                    <div className="flex items-center space-x-1">
+                    <div className="flex items-center space-x-0.5">
                         {navItems.map((item) => (
                             <Button
                                 key={item.path}
                                 asChild
                                 variant={location.pathname === item.path ? 'default' : 'ghost'}
                                 size="sm"
+                                className="h-8 px-2 text-xs"
                             >
                                 <Link to={item.path}>
                                     {item.label}
