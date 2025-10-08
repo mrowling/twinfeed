@@ -17,7 +17,7 @@ import (
 
 func main() {
 	log.Println("Starting TwinFeed backend...")
-	
+
 	// Initialize database
 	log.Println("Initializing database...")
 	if err := database.Initialize(); err != nil {
@@ -51,7 +51,7 @@ func main() {
 		v1.POST("/feed", handlers.CreateFeed)
 		v1.GET("/feeds", handlers.GetFeeds)
 		v1.DELETE("/feeds", handlers.DeleteAllFeeds)
-		
+
 		// Settings routes
 		v1.GET("/settings", handlers.GetSettings)
 		v1.PUT("/settings", handlers.UpdateSettings)

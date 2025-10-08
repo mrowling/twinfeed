@@ -131,7 +131,7 @@ func DeleteAllFeeds(c *gin.Context) {
 // HealthCheck returns the health status of the API
 func HealthCheck(c *gin.Context) {
 	db := database.GetDB()
-	
+
 	// Test database connection
 	sqlDB, err := db.DB()
 	if err != nil {
