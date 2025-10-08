@@ -8,14 +8,13 @@ import { Badge } from '@/components/ui/badge'
 import { useTimerStore } from '@/store/timerStore'
 import { useApiSync } from '@/hooks/useApiSync'
 import { useTheme } from '@/components/theme-provider'
-import { AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react'
+import { AlertTriangle, Loader2 } from 'lucide-react'
 
 function SettingsPage() {
     const { clearSessions } = useTimerStore()
     const { clearAllSessions, isLoading } = useApiSync()
     const { theme, setTheme } = useTheme()
     const [showConfirm, setShowConfirm] = useState(false)
-    const [settingsChanged, setSettingsChanged] = useState(false)
 
     // Settings state
     const [settings, setSettings] = useState({
@@ -40,32 +39,33 @@ function SettingsPage() {
     ]
 
     const handleSettingChange = (key: string, value: string | boolean | number) => {
-        setSettings(prev => ({
-            ...prev,
+        const newSettings = {
+            ...settings,
             [key]: value
-        }))
-        setSettingsChanged(true)
+        }
+        setSettings(newSettings)
+
+        // Auto-save immediately
+        localStorage.setItem('twinAName', newSettings.twinAName)
+        localStorage.setItem('twinBName', newSettings.twinBName)
+        localStorage.setItem('twinAColor', newSettings.twinAColor)
+        localStorage.setItem('twinBColor', newSettings.twinBColor)
+        localStorage.setItem('timerInterval', newSettings.defaultTimerInterval.toString())
+
+        // Show quick save confirmation
+        showSaveToast()
     }
 
-    const saveSettings = () => {
-        // Save to localStorage
-        localStorage.setItem('twinAName', settings.twinAName)
-        localStorage.setItem('twinBName', settings.twinBName)
-        localStorage.setItem('twinAColor', settings.twinAColor)
-        localStorage.setItem('twinBColor', settings.twinBColor)
-        localStorage.setItem('timerInterval', settings.defaultTimerInterval.toString())
-
-        setSettingsChanged(false)
-
-        // Show success toast (simple implementation)
-        // In a real app, you'd use a proper toast component
+    const showSaveToast = () => {
         const toast = document.createElement('div')
-        toast.className = 'fixed top-4 right-4 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg z-50 flex items-center gap-2'
-        toast.innerHTML = '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg> Settings saved!'
+        toast.className = 'fixed top-4 right-4 bg-green-600 text-white px-3 py-2 rounded-lg shadow-lg z-50 flex items-center gap-2 text-sm'
+        toast.innerHTML = '<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg> Saved!'
         document.body.appendChild(toast)
         setTimeout(() => {
-            document.body.removeChild(toast)
-        }, 3000)
+            if (document.body.contains(toast)) {
+                document.body.removeChild(toast)
+            }
+        }, 1500)
     }
 
     const handleClearAllData = async () => {
@@ -98,14 +98,24 @@ function SettingsPage() {
     }
 
     const resetSettings = () => {
-        setSettings({
+        const defaultSettings = {
             twinAName: 'Twin A',
             twinBName: 'Twin B',
             twinAColor: 'blue',
             twinBColor: 'pink',
             defaultTimerInterval: 100,
-        })
-        setSettingsChanged(true)
+        }
+
+        setSettings(defaultSettings)
+
+        // Auto-save the reset settings
+        localStorage.setItem('twinAName', defaultSettings.twinAName)
+        localStorage.setItem('twinBName', defaultSettings.twinBName)
+        localStorage.setItem('twinAColor', defaultSettings.twinAColor)
+        localStorage.setItem('twinBColor', defaultSettings.twinBColor)
+        localStorage.setItem('timerInterval', defaultSettings.defaultTimerInterval.toString())
+
+        showSaveToast()
     }
 
     return (
@@ -148,8 +158,8 @@ function SettingsPage() {
                                         type="button"
                                         onClick={() => handleSettingChange('twinAColor', color.value)}
                                         className={`w-8 h-8 rounded-full ${color.class} border-2 transition-all ${settings.twinAColor === color.value
-                                                ? 'border-foreground ring-2 ring-offset-2 ring-foreground'
-                                                : 'border-border hover:border-foreground'
+                                            ? 'border-foreground ring-2 ring-offset-2 ring-foreground'
+                                            : 'border-border hover:border-foreground'
                                             }`}
                                         title={color.name}
                                     />
@@ -181,8 +191,8 @@ function SettingsPage() {
                                         type="button"
                                         onClick={() => handleSettingChange('twinBColor', color.value)}
                                         className={`w-8 h-8 rounded-full ${color.class} border-2 transition-all ${settings.twinBColor === color.value
-                                                ? 'border-foreground ring-2 ring-offset-2 ring-foreground'
-                                                : 'border-border hover:border-foreground'
+                                            ? 'border-foreground ring-2 ring-offset-2 ring-foreground'
+                                            : 'border-border hover:border-foreground'
                                             }`}
                                         title={color.name}
                                     />
@@ -256,13 +266,6 @@ function SettingsPage() {
                     <CardTitle className="text-lg">Actions</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                    {settingsChanged && (
-                        <Button onClick={saveSettings} className="w-full" size="lg">
-                            <CheckCircle2 className="w-4 h-4 mr-2" />
-                            Save Settings
-                        </Button>
-                    )}
-
                     <Button onClick={resetSettings} variant="outline" className="w-full" size="lg">
                         Reset to Defaults
                     </Button>
