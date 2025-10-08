@@ -50,9 +50,8 @@ function TimerCard({
             </CardHeader>
             <CardContent className="space-y-6">
                 <div className="text-center">
-                    <div className={`text-4xl font-mono font-bold transition-colors duration-200 ${
-                        isRunning ? 'text-primary animate-pulse' : 'text-foreground'
-                    }`}>
+                    <div className={`text-4xl font-mono font-bold transition-colors duration-200 ${isRunning ? 'text-primary animate-pulse' : 'text-foreground'
+                        }`}>
                         {displayTime}
                     </div>
                     {isRunning && (
