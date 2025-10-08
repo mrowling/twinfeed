@@ -1,0 +1,157 @@
+version: "3"
+
+vars:
+  BACKEND_DIR: backend
+  FRONTEND_DIR: frontend
+
+tasks:
+  default:
+    desc: Show available tasks
+    cmd: task --list
+
+  setup:
+    desc: Initial project setup - install dependencies
+    cmds:
+      - echo "Setting up TwinFeed project..."
+      - task: setup:backend
+      - task: setup:frontend
+      - echo "Setup complete! Run 'task dev' to start development"
+
+  setup:backend:
+    desc: Setup backend dependencies
+    dir: "{{.BACKEND_DIR}}"
+    cmds:
+      - echo "Installing Go dependencies..."
+      - go mod download
+      - go mod tidy
+
+  setup:frontend:
+    desc: Setup frontend dependencies
+    dir: "{{.FRONTEND_DIR}}"
+    cmds:
+      - echo "Installing Node.js dependencies with pnpm..."
+      - pnpm install
+
+  dev:
+    desc: Run both frontend and backend in development mode
+    deps: [dev:backend, dev:frontend]
+
+  dev:backend:
+    desc: Run backend in development mode with hot reload
+    dir: "{{.BACKEND_DIR}}"
+    cmd: go run cmd/server/main.go
+    env:
+      GIN_MODE: debug
+      DB_PATH: "./data/twinfeed.db"
+      PORT: "8080"
+
+  dev:frontend:
+    desc: Run frontend in development mode
+    dir: "{{.FRONTEND_DIR}}"
+    cmd: pnpm run dev
+    env:
+      VITE_API_URL: "http://localhost:8080/api/v1"
+
+  build:
+    desc: Build both frontend and backend for production
+    deps: [build:backend, build:frontend]
+
+  build:backend:
+    desc: Build backend binary for production
+    dir: "{{.BACKEND_DIR}}"
+    cmds:
+      - mkdir -p bin
+      - go build -ldflags="-w -s" -o bin/server cmd/server/main.go
+      - echo "Backend built successfully at bin/server"
+
+  build:frontend:
+    desc: Build frontend for production
+    dir: "{{.FRONTEND_DIR}}"
+    cmds:
+      - pnpm run build
+      - echo "Frontend built successfully at dist/"
+
+  test:
+    desc: Run all tests
+    deps: [test:backend, test:frontend]
+
+  test:backend:
+    desc: Run backend tests
+    dir: "{{.BACKEND_DIR}}"
+    cmd: go test -v ./...
+
+  test:frontend:
+    desc: Run frontend tests
+    dir: "{{.FRONTEND_DIR}}"
+    cmd: pnpm test
+
+  docker:
+    desc: Build all Docker images
+    deps: [docker:backend, docker:frontend]
+
+  docker:backend:
+    desc: Build backend Docker image
+    dir: "{{.BACKEND_DIR}}"
+    cmds:
+      - docker build -t twinfeed-backend:latest .
+      - echo "Backend Docker image built successfully"
+
+  docker:frontend:
+    desc: Build frontend Docker image
+    dir: "{{.FRONTEND_DIR}}"
+    cmds:
+      - docker build -t twinfeed-frontend:latest .
+      - echo "Frontend Docker image built successfully"
+
+  clean:
+    desc: Clean build artifacts and dependencies
+    cmds:
+      - task: clean:backend
+      - task: clean:frontend
+      - echo "Cleanup complete"
+
+  clean:backend:
+    desc: Clean backend build artifacts
+    dir: "{{.BACKEND_DIR}}"
+    cmds:
+      - rm -rf bin/
+      - rm -rf data/
+      - go clean -cache
+
+  clean:frontend:
+    desc: Clean frontend build artifacts and dependencies
+    dir: "{{.FRONTEND_DIR}}"
+    cmds:
+      - rm -rf dist/
+      - rm -rf node_modules/
+      - rm -f pnpm-lock.yaml
+
+  format:
+    desc: Format code in both projects
+    deps: [format:backend, format:frontend]
+
+  format:backend:
+    desc: Format Go code
+    dir: "{{.BACKEND_DIR}}"
+    cmd: go fmt ./...
+
+  format:frontend:
+    desc: Format frontend code
+    dir: "{{.FRONTEND_DIR}}"
+    cmd: pnpm run format
+
+  lint:
+    desc: Run linters for both projects
+    deps: [lint:backend, lint:frontend]
+
+  lint:backend:
+    desc: Run Go linters
+    dir: "{{.BACKEND_DIR}}"
+    cmds:
+      - go fmt ./...
+      - go vet ./...
+
+  lint:frontend:
+    desc: Run frontend linters
+    dir: "{{.FRONTEND_DIR}}"
+    cmd: pnpm run lint
