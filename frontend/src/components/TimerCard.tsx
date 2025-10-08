@@ -42,11 +42,19 @@ function TimerCard({
         <Card className="w-full">
             <CardHeader className="text-center pb-2">
                 <CardTitle className="text-lg">{twinName}</CardTitle>
-                {currentSide && (
-                    <Badge variant="outline" className="mx-auto w-fit">
-                        Feeding on {currentSide} side
-                    </Badge>
-                )}
+                <div className="h-6 flex items-center justify-center">
+                    {currentSide ? (
+                        <Badge variant="outline" className="mx-auto w-fit">
+                            Feeding on {currentSide} side
+                        </Badge>
+                    ) : (
+                        <div className="invisible">
+                            <Badge variant="outline" className="mx-auto w-fit">
+                                Feeding on Left side
+                            </Badge>
+                        </div>
+                    )}
+                </div>
             </CardHeader>
             <CardContent className="space-y-6">
                 <div className="text-center">
