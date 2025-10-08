@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useApiSync } from '@/hooks/useApiSync'
 import { AlertTriangle, Loader2, Baby } from 'lucide-react'
+import { getTwinColorClasses } from '@/lib/twinColors'
 import type { FeedSession } from '@/types'
 
 function ReportPage() {
@@ -178,8 +179,7 @@ function ReportPage() {
                                                     className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
                                                 >
                                                     <div className="flex items-center space-x-3">
-                                                        <div className={`w-3 h-3 rounded-full ${session.twin === 'A' ? 'bg-blue-500' : 'bg-pink-500'
-                                                            }`} />
+                                                        <div className={`w-3 h-3 rounded-full ${getTwinColorClasses(session.twin).bg}`} />
                                                         <div>
                                                             <div className="font-medium text-foreground">
                                                                 {session.twin === 'A' ? twinAName : twinBName}

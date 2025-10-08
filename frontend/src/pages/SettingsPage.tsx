@@ -21,8 +21,23 @@ function SettingsPage() {
     const [settings, setSettings] = useState({
         twinAName: localStorage.getItem('twinAName') || 'Twin A',
         twinBName: localStorage.getItem('twinBName') || 'Twin B',
+        twinAColor: localStorage.getItem('twinAColor') || 'blue',
+        twinBColor: localStorage.getItem('twinBColor') || 'pink',
         defaultTimerInterval: parseInt(localStorage.getItem('timerInterval') || '100'),
     })
+
+    const colorOptions = [
+        { name: 'Blue', value: 'blue', class: 'bg-blue-500' },
+        { name: 'Pink', value: 'pink', class: 'bg-pink-500' },
+        { name: 'Green', value: 'green', class: 'bg-green-500' },
+        { name: 'Purple', value: 'purple', class: 'bg-purple-500' },
+        { name: 'Orange', value: 'orange', class: 'bg-orange-500' },
+        { name: 'Red', value: 'red', class: 'bg-red-500' },
+        { name: 'Yellow', value: 'yellow', class: 'bg-yellow-500' },
+        { name: 'Teal', value: 'teal', class: 'bg-teal-500' },
+        { name: 'Indigo', value: 'indigo', class: 'bg-indigo-500' },
+        { name: 'Gray', value: 'gray', class: 'bg-gray-500' },
+    ]
 
     const handleSettingChange = (key: string, value: string | boolean | number) => {
         setSettings(prev => ({
@@ -36,6 +51,8 @@ function SettingsPage() {
         // Save to localStorage
         localStorage.setItem('twinAName', settings.twinAName)
         localStorage.setItem('twinBName', settings.twinBName)
+        localStorage.setItem('twinAColor', settings.twinAColor)
+        localStorage.setItem('twinBColor', settings.twinBColor)
         localStorage.setItem('timerInterval', settings.defaultTimerInterval.toString())
 
         setSettingsChanged(false)
@@ -84,6 +101,8 @@ function SettingsPage() {
         setSettings({
             twinAName: 'Twin A',
             twinBName: 'Twin B',
+            twinAColor: 'blue',
+            twinBColor: 'pink',
             defaultTimerInterval: 100,
         })
         setSettingsChanged(true)
@@ -103,28 +122,73 @@ function SettingsPage() {
             {/* Twin Names */}
             <Card>
                 <CardHeader>
-                    <CardTitle className="text-lg">Twin Names</CardTitle>
+                    <CardTitle className="text-lg">Twin Configuration</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-foreground">
-                            First Twin Name
-                        </label>
-                        <Input
-                            value={settings.twinAName}
-                            onChange={(e) => handleSettingChange('twinAName', e.target.value)}
-                            placeholder="Twin A"
-                        />
+                <CardContent className="space-y-6">
+                    <div className="space-y-4">
+                        <h4 className="text-sm font-medium text-foreground">First Twin</h4>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-foreground">
+                                Name
+                            </label>
+                            <Input
+                                value={settings.twinAName}
+                                onChange={(e) => handleSettingChange('twinAName', e.target.value)}
+                                placeholder="Twin A"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-foreground">
+                                Color
+                            </label>
+                            <div className="grid grid-cols-5 gap-2">
+                                {colorOptions.map((color) => (
+                                    <button
+                                        key={color.value}
+                                        type="button"
+                                        onClick={() => handleSettingChange('twinAColor', color.value)}
+                                        className={`w-8 h-8 rounded-full ${color.class} border-2 transition-all ${settings.twinAColor === color.value
+                                                ? 'border-foreground ring-2 ring-offset-2 ring-foreground'
+                                                : 'border-border hover:border-foreground'
+                                            }`}
+                                        title={color.name}
+                                    />
+                                ))}
+                            </div>
+                        </div>
                     </div>
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-foreground">
-                            Second Twin Name
-                        </label>
-                        <Input
-                            value={settings.twinBName}
-                            onChange={(e) => handleSettingChange('twinBName', e.target.value)}
-                            placeholder="Twin B"
-                        />
+
+                    <div className="space-y-4">
+                        <h4 className="text-sm font-medium text-foreground">Second Twin</h4>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-foreground">
+                                Name
+                            </label>
+                            <Input
+                                value={settings.twinBName}
+                                onChange={(e) => handleSettingChange('twinBName', e.target.value)}
+                                placeholder="Twin B"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-foreground">
+                                Color
+                            </label>
+                            <div className="grid grid-cols-5 gap-2">
+                                {colorOptions.map((color) => (
+                                    <button
+                                        key={color.value}
+                                        type="button"
+                                        onClick={() => handleSettingChange('twinBColor', color.value)}
+                                        className={`w-8 h-8 rounded-full ${color.class} border-2 transition-all ${settings.twinBColor === color.value
+                                                ? 'border-foreground ring-2 ring-offset-2 ring-foreground'
+                                                : 'border-border hover:border-foreground'
+                                            }`}
+                                        title={color.name}
+                                    />
+                                ))}
+                            </div>
+                        </div>
                     </div>
                 </CardContent>
             </Card>
@@ -274,10 +338,6 @@ function SettingsPage() {
                         <div className="flex justify-between items-center">
                             <span className="text-muted-foreground">Version:</span>
                             <Badge variant="outline" className="font-mono">1.0.0</Badge>
-                        </div>
-                        <div className="flex justify-between items-center">
-                            <span className="text-muted-foreground">Build:</span>
-                            <Badge variant="outline" className="font-mono">shadcn-ui</Badge>
                         </div>
                         <div className="flex justify-between items-center">
                             <span className="text-muted-foreground">License:</span>
