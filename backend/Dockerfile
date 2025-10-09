@@ -1,8 +1,16 @@
 # Build stage
-FROM golang:1.23-alpine AS builder
+FROM golang:1.23-bullseye AS builder
 
 # Install build dependencies
-RUN apk add --no-cache gcc musl-dev sqlite-dev
+RUN apt-get update && apt-get install -y \
+    gcc \
+    libc6-dev \
+    libsqlite3-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set build environment
+ENV CGO_ENABLED=1
+ENV GOOS=linux
 
 WORKDIR /app
 
@@ -13,14 +21,18 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Build the application
-RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o main cmd/server/main.go
+# Build the application with SQLite build tags
+RUN go build -a -tags "sqlite_omit_load_extension sqlite_foreign_keys" -o main cmd/server/main.go
 
 # Final stage
-FROM alpine:latest
+FROM debian:bullseye-slim
 
 # Install runtime dependencies
-RUN apk --no-cache add ca-certificates sqlite
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    sqlite3 \
+    wget \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /root/
 
@@ -37,10 +49,6 @@ ENV PORT=8080
 
 # Expose port
 EXPOSE 8080
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
 
 # Run the application
 CMD ["./main"]
