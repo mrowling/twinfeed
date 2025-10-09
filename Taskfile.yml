@@ -171,11 +171,11 @@ tasks:
       - docker build -t twinfeed-frontend:latest .
       - echo "Frontend Docker image built successfully"
 
-  docker:up:
+  start:
     desc: Start all services using Docker Compose
     cmds:
       - task: docker
-      - docker-compose up
+      - docker compose up
 
   clean:
     desc: Clean build artifacts and dependencies
