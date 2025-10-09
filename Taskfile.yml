@@ -171,11 +171,37 @@ tasks:
       - docker build -t twinfeed-frontend:latest .
       - echo "Frontend Docker image built successfully"
 
+  docker:pull:
+    desc: Pull published Docker images from GitHub Container Registry
+    cmds:
+      - docker pull ghcr.io/mrowling/feeding-tracker-backend:latest
+      - docker pull ghcr.io/mrowling/feeding-tracker-frontend:latest
+      - echo "✅ Published Docker images pulled successfully"
+
+  docker:run:
+    desc: Run the application using published Docker images
+    deps: [docker:pull]
+    cmds:
+      - docker compose -f docker-compose.prod.yml up
+      - echo "Application running with published images"
+
+  docker:run:detached:
+    desc: Run the application in detached mode using published images
+    deps: [docker:pull]
+    cmds:
+      - docker compose -f docker-compose.prod.yml up -d
+      - echo "Application running in background with published images"
+
   start:
-    desc: Start all services using Docker Compose
+    desc: Start all services using Docker Compose (local build)
     cmds:
       - task: docker
       - docker compose up
+
+  start:prod:
+    desc: Start all services using published Docker images
+    cmds:
+      - task: docker:run
 
   clean:
     desc: Clean build artifacts and dependencies

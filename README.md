@@ -81,14 +81,36 @@ task lint             # Run linters
 
 ### Using Docker
 
-1. **Build and run with Docker Compose**
+1. **Local Development (Build from source)**
    ```bash
    docker compose up --build
    ```
 
-2. **Access the application**
+2. **Production Deployment (Using published images)**
+   ```bash
+   # Pull the latest images from GitHub Container Registry
+   docker pull ghcr.io/mrowling/feeding-tracker-backend:latest
+   docker pull ghcr.io/mrowling/feeding-tracker-frontend:latest
+   
+   # Run using published images
+   docker compose -f docker-compose.prod.yml up
+   ```
+
+3. **Access the application**
    - Frontend: http://localhost:3000
    - Backend API: http://localhost:8080
+
+### Published Docker Images
+
+The project automatically publishes Docker images to GitHub Container Registry on every push:
+
+- **Backend**: `ghcr.io/mrowling/feeding-tracker-backend`
+- **Frontend**: `ghcr.io/mrowling/feeding-tracker-frontend`
+
+Available tags:
+- `latest` - Latest version from main branch
+- `pr-<number>` - Images from pull requests
+- `<branch>-<sha>` - Images tagged with branch and commit SHA
 
 ## Project Structure
 
