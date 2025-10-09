@@ -81,14 +81,84 @@ task lint             # Run linters
 
 ### Using Docker
 
-1. **Build and run with Docker Compose**
+1. **Local Development (Build from source)**
    ```bash
-   docker-compose up --build
+   docker compose up --build
    ```
 
-2. **Access the application**
+2. **Production Deployment (Using published images)**
+   ```bash
+   # Run latest version
+   docker compose -f docker-compose.prod.yml up
+   
+   # Run specific release version
+   RELEASE_TAG=v1.0.0 docker compose -f docker-compose.prod.yml up
+   ```
+
+3. **Using Task commands**
+   ```bash
+   # Run latest
+   task start:prod
+   
+   # Run specific version
+   task docker:run:version VERSION=v1.0.0
+   ```
+
+4. **Access the application**
    - Frontend: http://localhost:3000
    - Backend API: http://localhost:8080
+
+### Published Docker Images
+
+The project uses two workflows for Docker image publishing:
+
+#### CI Workflow (Development)
+Publishes images on every push to development branches:
+- **Backend**: `ghcr.io/mrowling/feeding-tracker-backend`
+- **Frontend**: `ghcr.io/mrowling/feeding-tracker-frontend`
+
+Development tags:
+- `latest` - Latest version from main branch
+- `pr-<number>` - Images from pull requests  
+- `<branch>-<sha>` - Images tagged with branch and commit SHA
+
+#### Release Workflow (Production)
+Publishes versioned images when you create a GitHub release:
+- Multi-platform support (linux/amd64, linux/arm64)
+- Semantic version tags: `v1.0.0`, `v1.0`, `v1`
+- Updates `latest` tag to point to the new release
+- Automatically updates release notes with Docker information
+
+### Creating a Release
+
+To publish a new release with Docker images:
+
+1. **Create a release on GitHub:**
+   ```bash
+   # Tag your commit
+   git tag v1.0.0
+   git push origin v1.0.0
+   
+   # Or create release via GitHub UI
+   ```
+
+2. **The release workflow will automatically:**
+   - Build multi-platform Docker images
+   - Push images with semantic version tags
+   - Update the `latest` tag
+   - Add Docker pull commands to release notes
+
+3. **Deploy the release:**
+   ```bash
+   # Deploy specific version
+   RELEASE_TAG=v1.0.0 docker compose -f docker-compose.prod.yml up -d
+   
+   # Or use task command
+   task docker:run:version VERSION=v1.0.0
+   ```
+- `latest` - Latest version from main branch
+- `pr-<number>` - Images from pull requests
+- `<branch>-<sha>` - Images tagged with branch and commit SHA
 
 ## Project Structure
 
