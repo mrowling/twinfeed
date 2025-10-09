@@ -1,0 +1,171 @@
+name: Helm Chart Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'helm/twinfeed/**'
+  release:
+    types: [published]
+
+env:
+  HELM_VERSION: "3.13.0"
+
+jobs:
+  helm-lint-test:
+    name: Helm Lint and Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - name: Lint Helm chart
+        run: |
+          cd helm/twinfeed
+          helm lint .
+
+      - name: Template Helm chart
+        run: |
+          cd helm/twinfeed
+          helm template twinfeed . --debug
+          helm template twinfeed . -f values-dev.yaml --debug
+          helm template twinfeed . -f values-prod.yaml --debug
+
+      - name: Package Helm chart
+        run: |
+          cd helm
+          helm package twinfeed
+
+      - name: Upload chart artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: helm-chart
+          path: helm/*.tgz
+
+  helm-publish:
+    name: Publish Helm Chart
+    runs-on: ubuntu-latest
+    needs: helm-lint-test
+    if: github.event_name == 'release'
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+
+      - name: Update Chart version
+        run: |
+          # Extract version from release tag (remove 'v' prefix if present)
+          VERSION=${GITHUB_REF#refs/tags/}
+          VERSION=${VERSION#v}
+          
+          # Update Chart.yaml with release version
+          sed -i "s/^version:.*/version: ${VERSION}/" helm/twinfeed/Chart.yaml
+          sed -i "s/^appVersion:.*/appVersion: \"${VERSION}\"/" helm/twinfeed/Chart.yaml
+          
+          echo "Updated chart to version: ${VERSION}"
+
+      - name: Package Helm chart
+        run: |
+          cd helm
+          helm package twinfeed
+
+      - name: Checkout gh-pages branch
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: gh-pages
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update Helm repository
+        run: |
+          # Copy new chart package to gh-pages
+          cp helm/*.tgz gh-pages/
+          
+          # Generate/update index.yaml
+          cd gh-pages
+          helm repo index . --url https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
+          
+          # Commit and push changes
+          git add .
+          git commit -m "Release Helm chart version ${GITHUB_REF#refs/tags/}" || exit 0
+          git push
+
+      - name: Create GitHub Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: helm/twinfeed-${{ github.event.release.tag_name }}.tgz
+          asset_name: twinfeed-${{ github.event.release.tag_name }}.tgz
+          asset_content_type: application/gzip
+
+      - name: Update release notes
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const { data: release } = await github.rest.repos.getRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: ${{ github.event.release.id }}
+            });
+
+            const helmInfo = `
+
+            ## 📦 Helm Chart
+
+            This release includes a Helm chart for easy Kubernetes deployment:
+
+            ### Add Helm Repository
+            \`\`\`bash
+            helm repo add twinfeed https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
+            helm repo update
+            \`\`\`
+
+            ### Install TwinFeed
+            \`\`\`bash
+            # Basic installation
+            helm install twinfeed twinfeed/twinfeed
+
+            # Install specific version
+            helm install twinfeed twinfeed/twinfeed --version ${{ github.event.release.tag_name }}
+
+            # Production installation with custom values
+            helm install twinfeed twinfeed/twinfeed \\
+              --set global.imageTag=${{ github.event.release.tag_name }} \\
+              --set ingress.enabled=true \\
+              --set ingress.hosts[0].host=twinfeed.example.com
+            \`\`\`
+
+            ### Chart Repository
+            - **Repository URL**: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
+            - **Chart Archive**: [twinfeed-${{ github.event.release.tag_name }}.tgz](https://github.com/${{ github.repository }}/releases/download/${{ github.event.release.tag_name }}/twinfeed-${{ github.event.release.tag_name }}.tgz)
+            `;
+
+            await github.rest.repos.updateRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: ${{ github.event.release.id }},
+              body: release.body + helmInfo
+            });

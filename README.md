@@ -104,9 +104,54 @@ task lint             # Run linters
    task docker:run:version VERSION=v1.0.0
    ```
 
+### Using Helm (Kubernetes)
+
+1. **Add the Helm repository**
+   ```bash
+   helm repo add twinfeed https://mrowling.github.io/feeding-tracker
+   helm repo update
+   ```
+
+2. **Install TwinFeed**
+   ```bash
+   # Basic installation
+   helm install twinfeed twinfeed/twinfeed
+
+   # Install with custom namespace
+   helm install twinfeed twinfeed/twinfeed --create-namespace --namespace twinfeed
+
+   # Production installation with ingress
+   helm install twinfeed twinfeed/twinfeed \
+     --set global.imageTag=v1.0.0 \
+     --set ingress.enabled=true \
+     --set ingress.hosts[0].host=twinfeed.example.com
+   ```
+
+3. **Using Task commands**
+   ```bash
+   # Local development
+   task helm:install:dev
+   
+   # Specific version
+   task helm:install:version VERSION=v1.0.0
+   
+   # Validate chart before installing
+   task helm:validate
+   ```
+
 4. **Access the application**
-   - Frontend: http://localhost:3000
-   - Backend API: http://localhost:8080
+   - **With Ingress**: https://your-domain.com
+   - **Port Forward**: `kubectl port-forward svc/twinfeed-frontend 3000:80`
+   - **NodePort**: Check service external IP/port
+
+### Deployment Options Summary
+
+| Method | Use Case | Command |
+|--------|----------|---------|
+| **Docker Compose** | Local development, simple deployments | `docker compose up` |
+| **Docker (Production)** | Container platforms, manual deployment | `docker compose -f docker-compose.prod.yml up` |
+| **Helm Chart** | Kubernetes clusters, enterprise deployment | `helm install twinfeed twinfeed/twinfeed` |
+| **Task Automation** | Developer workflows, CI/CD integration | `task start:prod` |
 
 ### Published Docker Images
 

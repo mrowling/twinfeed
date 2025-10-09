@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "twinfeed.fullname" . }}-test"
+  labels:
+    {{- include "twinfeed.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+spec:
+  restartPolicy: Never
+  containers:
+    - name: wget
+      image: busybox
+      command: ['wget']
+      args: ['--spider', '--timeout=10', '{{ include "twinfeed.fullname" . }}-frontend:{{ .Values.frontend.service.port }}']
+    - name: backend-health
+      image: busybox
+      command: ['wget']
+      args: ['--spider', '--timeout=10', '{{ include "twinfeed.fullname" . }}-backend:{{ .Values.backend.service.port }}/api/v1/health']
