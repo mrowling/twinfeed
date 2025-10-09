@@ -72,18 +72,86 @@ tasks:
       - echo "Frontend built successfully at dist/"
 
   test:
-    desc: Run all tests
+    desc: Run all tests with coverage
     deps: [test:backend, test:frontend]
 
   test:backend:
-    desc: Run backend tests
+    desc: Run backend tests with coverage
     dir: "{{.BACKEND_DIR}}"
-    cmd: go test -v ./...
+    cmds:
+      - go test ./... -v -race -coverprofile=coverage.out
+      - go tool cover -html=coverage.out -o coverage.html
+      - go tool cover -func=coverage.out
 
   test:frontend:
     desc: Run frontend tests
     dir: "{{.FRONTEND_DIR}}"
-    cmd: pnpm test
+    cmds:
+      - pnpm test --run
+
+  test:watch:
+    desc: Run tests in watch mode (development)
+    deps: [test:backend:watch, test:frontend:watch]
+
+  test:backend:watch:
+    desc: Run backend tests in watch mode
+    dir: "{{.BACKEND_DIR}}"
+    cmd: |
+      while true; do
+        go test ./... -v
+        inotifywait -e modify -r . --include="\.go$" 2>/dev/null || sleep 2
+      done
+
+  test:frontend:watch:
+    desc: Run frontend tests in watch mode
+    dir: "{{.FRONTEND_DIR}}"
+    cmd: pnpm test --watch
+
+  test:coverage:
+    desc: Generate and display test coverage reports
+    deps: [test:backend:coverage, test:frontend:coverage]
+
+  test:backend:coverage:
+    desc: Generate backend test coverage report
+    dir: "{{.BACKEND_DIR}}"
+    cmds:
+      - go test ./... -v -race -coverprofile=coverage.out -covermode=atomic
+      - go tool cover -html=coverage.out -o coverage.html
+      - echo "Backend coverage report generated at backend/coverage.html"
+      - go tool cover -func=coverage.out
+
+  test:frontend:coverage:
+    desc: Generate frontend test coverage report
+    dir: "{{.FRONTEND_DIR}}"
+    cmds:
+      - pnpm test --coverage --run --reporter=verbose
+      - echo "Frontend coverage report generated at frontend/coverage/index.html"
+
+  test:unit:
+    desc: Run unit tests only
+    deps: [test:backend:unit, test:frontend:unit]
+
+  test:backend:unit:
+    desc: Run backend unit tests
+    dir: "{{.BACKEND_DIR}}"
+    cmd: go test ./internal/... -v -short
+
+  test:frontend:unit:
+    desc: Run frontend unit tests
+    dir: "{{.FRONTEND_DIR}}"
+    cmd: pnpm test --run
+
+  test:integration:
+    desc: Run integration tests
+    dir: "{{.BACKEND_DIR}}"
+    env:
+      INTEGRATION_TESTS: "true"
+    cmd: go test ./... -v -tags=integration
+
+  test:benchmark:
+    desc: Run benchmark tests
+    dir: "{{.BACKEND_DIR}}"
+    cmd: go test ./... -bench=. -benchmem
 
   docker:
     desc: Build all Docker images

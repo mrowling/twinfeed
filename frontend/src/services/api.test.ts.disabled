@@ -1,0 +1,403 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import axios from 'axios'
+import { feedApi } from './api'
+import type { FeedSession } from '../types'
+
+// Mock axios
+vi.mock('axios')
+const mockedAxios = vi.mocked(axios)
+
+describe('feedApi', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  describe('getFeedSessions', () => {
+    it('should fetch feed sessions', async () => {
+      const mockSessions: FeedSession[] = [
+        {
+          id: 1,
+          twin: 'A',
+          side: 'Left',
+          duration: 300,
+          startTime: new Date().toISOString(),
+          endTime: new Date().toISOString(),
+        },
+      ]
+
+      mockedAxios.get.mockResolvedValue({
+        data: { sessions: mockSessions },
+      })
+
+      const result = await feedApi.getFeedSessions()
+
+      expect(mockedAxios.get).toHaveBeenCalledWith('/api/feed-sessions')
+      expect(result).toEqual(mockSessions)
+    })
+
+    it('should handle error when fetching sessions', async () => {
+      mockedAxios.get.mockRejectedValue(new Error('Network error'))
+
+      await expect(feedApi.getFeedSessions()).rejects.toThrow('Network error')
+    })
+  })
+
+  describe('saveFeedSession', () => {
+    it('should save feed session', async () => {
+      const mockSession: Omit<FeedSession, 'id'> = {
+        twin: 'A',
+        side: 'Left',
+        duration: 300,
+        startTime: new Date().toISOString(),
+        endTime: new Date().toISOString(),
+      }
+
+      const savedSession = { id: 1, ...mockSession }
+      mockedAxios.post.mockResolvedValue({
+        data: savedSession,
+      })
+
+      const result = await feedApi.saveFeedSession(mockSession)
+
+      expect(mockedAxios.post).toHaveBeenCalledWith('/api/feed-sessions', mockSession)
+      expect(result).toEqual(savedSession)
+    })
+
+    it('should handle error when saving session', async () => {
+      const mockSession: Omit<FeedSession, 'id'> = {
+        twin: 'A',
+        side: 'Left',
+        duration: 300,
+        startTime: new Date().toISOString(),
+        endTime: new Date().toISOString(),
+      }
+
+      mockedAxios.post.mockRejectedValue(new Error('Server error'))
+
+      await expect(feedApi.saveFeedSession(mockSession)).rejects.toThrow('Server error')
+    })
+  })
+})
+
+describe('feedApi', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  describe('createFeed', () => {
+    it('should create a new feed session successfully', async () => {
+      const newFeed: Omit<FeedSession, 'id' | 'created_at'> = {
+        twin: 'A',
+        side: 'Left',
+        duration: 300,
+        start_time: '2023-01-01T12:00:00.000Z',
+      }
+
+      const expectedResponse: FeedSession = {
+        id: 1,
+        ...newFeed,
+        created_at: '2023-01-01T12:05:00.000Z',
+      }
+
+      mockAxiosInstance.post.mockResolvedValue({
+        data: expectedResponse,
+      })
+
+      const result = await feedApi.createFeed(newFeed)
+
+      expect(mockAxiosInstance.post).toHaveBeenCalledWith('/feed', newFeed)
+      expect(result).toEqual(expectedResponse)
+    })
+
+    it('should handle creation errors', async () => {
+      const newFeed: Omit<FeedSession, 'id' | 'created_at'> = {
+        twin: 'A',
+        side: 'Left',
+        duration: 300,
+        start_time: '2023-01-01T12:00:00.000Z',
+      }
+
+      const error = new Error('Network error')
+      mockAxiosInstance.post.mockRejectedValue(error)
+
+      await expect(feedApi.createFeed(newFeed)).rejects.toThrow('Network error')
+      expect(mockAxiosInstance.post).toHaveBeenCalledWith('/feed', newFeed)
+    })
+
+    it('should handle invalid feed data', async () => {
+      const invalidFeed = {
+        twin: 'C', // Invalid twin
+        side: 'Left',
+        duration: 300,
+        start_time: '2023-01-01T12:00:00.000Z',
+      } as any
+
+      const error = { response: { status: 400, data: { error: 'Invalid twin' } } }
+      mockAxiosInstance.post.mockRejectedValue(error)
+
+      await expect(feedApi.createFeed(invalidFeed)).rejects.toEqual(error)
+    })
+  })
+
+  describe('getFeeds', () => {
+    it('should fetch feeds with default pagination', async () => {
+      const mockFeeds: FeedSession[] = [
+        {
+          id: 1,
+          twin: 'A',
+          side: 'Left',
+          duration: 300,
+          start_time: '2023-01-01T12:00:00.000Z',
+          created_at: '2023-01-01T12:05:00.000Z',
+        },
+        {
+          id: 2,
+          twin: 'B',
+          side: 'Right',
+          duration: 250,
+          start_time: '2023-01-01T11:30:00.000Z',
+          created_at: '2023-01-01T11:35:00.000Z',
+        },
+      ]
+
+      const expectedResponse = {
+        feeds: mockFeeds,
+        total: 2,
+      }
+
+      mockAxiosInstance.get.mockResolvedValue({
+        data: expectedResponse,
+      })
+
+      const result = await feedApi.getFeeds()
+
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/feeds', {
+        params: { limit: 100, offset: 0 },
+      })
+      expect(result).toEqual(expectedResponse)
+    })
+
+    it('should fetch feeds with custom pagination', async () => {
+      const mockFeeds: FeedSession[] = []
+      const expectedResponse = { feeds: mockFeeds, total: 0 }
+
+      mockAxiosInstance.get.mockResolvedValue({
+        data: expectedResponse,
+      })
+
+      const result = await feedApi.getFeeds(50, 20)
+
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/feeds', {
+        params: { limit: 50, offset: 20 },
+      })
+      expect(result).toEqual(expectedResponse)
+    })
+
+    it('should handle fetch errors', async () => {
+      const error = new Error('Server error')
+      mockAxiosInstance.get.mockRejectedValue(error)
+
+      await expect(feedApi.getFeeds()).rejects.toThrow('Server error')
+    })
+
+    it('should handle empty response', async () => {
+      const expectedResponse = { feeds: [], total: 0 }
+      mockAxiosInstance.get.mockResolvedValue({
+        data: expectedResponse,
+      })
+
+      const result = await feedApi.getFeeds()
+
+      expect(result.feeds).toEqual([])
+      expect(result.total).toBe(0)
+    })
+  })
+
+  describe('deleteAllFeeds', () => {
+    it('should delete all feeds successfully', async () => {
+      const expectedResponse = {
+        message: 'All feeding sessions deleted',
+        deleted_count: 5,
+      }
+
+      mockAxiosInstance.delete.mockResolvedValue({
+        data: expectedResponse,
+      })
+
+      const result = await feedApi.deleteAllFeeds()
+
+      expect(mockAxiosInstance.delete).toHaveBeenCalledWith('/feeds')
+      expect(result).toEqual(expectedResponse)
+    })
+
+    it('should handle deletion when no feeds exist', async () => {
+      const expectedResponse = {
+        message: 'All feeding sessions deleted',
+        deleted_count: 0,
+      }
+
+      mockAxiosInstance.delete.mockResolvedValue({
+        data: expectedResponse,
+      })
+
+      const result = await feedApi.deleteAllFeeds()
+
+      expect(result.deleted_count).toBe(0)
+    })
+
+    it('should handle deletion errors', async () => {
+      const error = new Error('Server error')
+      mockAxiosInstance.delete.mockRejectedValue(error)
+
+      await expect(feedApi.deleteAllFeeds()).rejects.toThrow('Server error')
+    })
+  })
+
+  describe('healthCheck', () => {
+    it('should perform health check successfully', async () => {
+      const expectedResponse = {
+        status: 'healthy',
+        timestamp: '2023-01-01T12:00:00.000Z',
+        service: 'twinfeed-backend',
+      }
+
+      mockAxiosInstance.get.mockResolvedValue({
+        data: expectedResponse,
+      })
+
+      const result = await feedApi.healthCheck()
+
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/health')
+      expect(result).toEqual(expectedResponse)
+    })
+
+    it('should handle unhealthy status', async () => {
+      const expectedResponse = {
+        status: 'unhealthy',
+        error: 'database connection failed',
+      }
+
+      mockAxiosInstance.get.mockResolvedValue({
+        data: expectedResponse,
+      })
+
+      const result = await feedApi.healthCheck()
+
+      expect(result.status).toBe('unhealthy')
+      expect(result).toHaveProperty('error')
+    })
+
+    it('should handle health check errors', async () => {
+      const error = new Error('Connection refused')
+      mockAxiosInstance.get.mockRejectedValue(error)
+
+      await expect(feedApi.healthCheck()).rejects.toThrow('Connection refused')
+    })
+  })
+
+  describe('API Configuration', () => {
+    it('should use correct base URL from environment', () => {
+      // The axios.create call should use the correct base URL
+      expect(require('axios').default.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          baseURL: expect.any(String),
+          timeout: 10000,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
+      )
+    })
+
+    it('should have response interceptor configured', () => {
+      expect(mockAxiosInstance.interceptors.response.use).toHaveBeenCalled()
+    })
+  })
+
+  describe('Error Handling', () => {
+    it('should handle network timeout errors', async () => {
+      const timeoutError = new Error('timeout of 10000ms exceeded')
+      timeoutError.name = 'AxiosError'
+      mockAxiosInstance.get.mockRejectedValue(timeoutError)
+
+      await expect(feedApi.getFeeds()).rejects.toThrow('timeout of 10000ms exceeded')
+    })
+
+    it('should handle 400 bad request errors', async () => {
+      const badRequestError = {
+        response: {
+          status: 400,
+          data: { error: 'Invalid request data' },
+        },
+      }
+      mockAxiosInstance.post.mockRejectedValue(badRequestError)
+
+      const invalidFeed = {} as any
+      await expect(feedApi.createFeed(invalidFeed)).rejects.toEqual(badRequestError)
+    })
+
+    it('should handle 500 server errors', async () => {
+      const serverError = {
+        response: {
+          status: 500,
+          data: { error: 'Internal server error' },
+        },
+      }
+      mockAxiosInstance.get.mockRejectedValue(serverError)
+
+      await expect(feedApi.getFeeds()).rejects.toEqual(serverError)
+    })
+
+    it('should handle JSON parsing errors', async () => {
+      const invalidJsonError = new Error('Unexpected token in JSON')
+      mockAxiosInstance.get.mockRejectedValue(invalidJsonError)
+
+      await expect(feedApi.getFeeds()).rejects.toThrow('Unexpected token in JSON')
+    })
+  })
+
+  describe('Data Validation', () => {
+    it('should handle malformed feed data in response', async () => {
+      const malformedResponse = {
+        data: {
+          feeds: [
+            {
+              // Missing required fields
+              twin: 'A',
+              // missing side, duration, etc.
+            },
+          ],
+          total: 1,
+        },
+      }
+
+      mockAxiosInstance.get.mockResolvedValue(malformedResponse)
+
+      const result = await feedApi.getFeeds()
+      
+      // API should return the data as-is, validation should be done client-side
+      expect(result.feeds).toHaveLength(1)
+      expect(result.feeds[0].twin).toBe('A')
+    })
+
+    it('should handle unexpected response structure', async () => {
+      const unexpectedResponse = {
+        data: {
+          // Missing feeds and total properties
+          result: 'success',
+        },
+      }
+
+      mockAxiosInstance.get.mockResolvedValue(unexpectedResponse)
+
+      const result = await feedApi.getFeeds()
+      
+      // Should return whatever the server provides
+      expect(result).toEqual(unexpectedResponse.data)
+    })
+  })
+})
