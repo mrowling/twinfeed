@@ -228,4 +228,6 @@ tasks:
   lint:frontend:
     desc: Run frontend linters
     dir: "{{.FRONTEND_DIR}}"
-    cmd: pnpm run lint
+    cmds:
+      - pnpm run lint
+      - pnpm type-check
