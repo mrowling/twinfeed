@@ -75,7 +75,7 @@ frontend:
     port: 80
     targetPort: 80
   env:
-    VITE_API_URL: "" # Will be set dynamically to backend service
+    VITE_API_URL: "" # Will be set dynamically to backend service or ingress
   resources:
     {}
     # limits:
@@ -93,15 +93,35 @@ ingress:
     # kubernetes.io/ingress.class: nginx
     # kubernetes.io/tls-acme: "true"
     # cert-manager.io/cluster-issuer: letsencrypt-prod
-  hosts:
-    - host: twinfeed.local
-      paths:
-        - path: /
-          pathType: Prefix
+
+  # Single hostname for both frontend and backend (production setup)
+  hostname: "twinfeed.local"
+
+  # Path-based routing on same hostname
+  frontend:
+    path: /
+    pathType: Prefix
+  backend:
+    path: /api
+    pathType: Prefix
+
   tls: []
   #  - secretName: twinfeed-tls
   #    hosts:
   #      - twinfeed.example.com
+
+# Development vs Production configuration
+config:
+  # Environment: development or production
+  environment: "development"
+
+  # In development: frontend calls backend directly on different ports (localhost:3000 -> localhost:8080)
+  # In production: frontend calls backend via same hostname/ingress (twinfeed.com -> twinfeed.com/api)
+  production:
+    # Use ingress hostname for API calls in production
+    useIngressForApi: true
+    # API path prefix (e.g., /api)
+    apiPath: "/api"
 
 # Additional volumes on the output Deployment definition.
 volumes: []
