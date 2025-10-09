@@ -42,12 +42,12 @@ func main() {
 	router.Use(gin.Logger())
 	router.Use(gin.Recovery())
 
-	// Health check endpoint
-	router.GET("/health", handlers.HealthCheck)
-
 	// API routes
 	v1 := router.Group("/api/v1")
 	{
+		// Health check endpoint
+		v1.GET("/health", handlers.HealthCheck)
+
 		v1.POST("/feed", handlers.CreateFeed)
 		v1.GET("/feeds", handlers.GetFeeds)
 		v1.DELETE("/feeds", handlers.DeleteAllFeeds)

@@ -36,37 +36,43 @@ spec:
     {{- end }}
   {{- end }}
   rules:
-    - host: {{ .Values.ingress.hostname | quote }}
+    {{- range .Values.ingress.hosts }}
+    - host: {{ .host | quote }}
       http:
         paths:
-          # Frontend path (serves the React app)
-          - path: {{ .Values.ingress.frontend.path }}
-            {{- if and .Values.ingress.frontend.pathType (semverCompare ">=1.18-0" $.Capabilities.KubeVersion.GitVersion) }}
-            pathType: {{ .Values.ingress.frontend.pathType }}
+          {{- range .paths }}
+          - path: {{ .path }}
+            {{- if and .pathType (semverCompare ">=1.18-0" $.Capabilities.KubeVersion.GitVersion) }}
+            pathType: {{ .pathType }}
             {{- end }}
             backend:
               {{- if semverCompare ">=1.19-0" $.Capabilities.KubeVersion.GitVersion }}
               service:
+                {{- if eq .service "frontend" }}
                 name: {{ $fullName }}-frontend
                 port:
                   number: {{ $frontendSvcPort }}
+                {{- else if eq .service "backend" }}
+                name: {{ $fullName }}-backend
+                port:
+                  number: {{ $backendSvcPort }}
+                {{- else }}
+                name: {{ $fullName }}-frontend
+                port:
+                  number: {{ $frontendSvcPort }}
+                {{- end }}
+              {{- else }}
+              {{- if eq .service "frontend" }}
+              serviceName: {{ $fullName }}-frontend
+              servicePort: {{ $frontendSvcPort }}
+              {{- else if eq .service "backend" }}
+              serviceName: {{ $fullName }}-backend
+              servicePort: {{ $backendSvcPort }}
               {{- else }}
               serviceName: {{ $fullName }}-frontend
               servicePort: {{ $frontendSvcPort }}
               {{- end }}
-          # Backend API path (serves the API)
-          - path: {{ .Values.ingress.backend.path }}
-            {{- if and .Values.ingress.backend.pathType (semverCompare ">=1.18-0" $.Capabilities.KubeVersion.GitVersion) }}
-            pathType: {{ .Values.ingress.backend.pathType }}
-            {{- end }}
-            backend:
-              {{- if semverCompare ">=1.19-0" $.Capabilities.KubeVersion.GitVersion }}
-              service:
-                name: {{ $fullName }}-backend
-                port:
-                  number: {{ $backendSvcPort }}
-              {{- else }}
-              serviceName: {{ $fullName }}-backend
-              servicePort: {{ $backendSvcPort }}
               {{- end }}
+          {{- end }}
+    {{- end }}
 {{- end }}

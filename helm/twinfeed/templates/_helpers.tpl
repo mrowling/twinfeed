@@ -104,12 +104,13 @@ Backend API URL for frontend
 {{- define "twinfeed.backend.apiUrl" -}}
 {{- if .Values.frontend.env.VITE_API_URL }}
 {{- .Values.frontend.env.VITE_API_URL }}
-{{- else if and .Values.ingress.enabled .Values.config.production.useIngressForApi }}
+{{- else if .Values.ingress.enabled }}
 {{- $scheme := "http" }}
 {{- if .Values.ingress.tls }}
 {{- $scheme = "https" }}
 {{- end }}
-{{- printf "%s://%s%s" $scheme .Values.ingress.hostname .Values.config.production.apiPath }}
+{{- $host := (index .Values.ingress.hosts 0).host }}
+{{- printf "%s://%s/api/v1" $scheme $host }}
 {{- else }}
 {{- printf "http://%s-backend:%d/api/v1" (include "twinfeed.fullname" .) (.Values.backend.service.port | int) }}
 {{- end }}
