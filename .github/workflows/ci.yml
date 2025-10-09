@@ -53,7 +53,7 @@ jobs:
           go tool cover -func=coverage.out
 
       - name: Upload backend coverage reports
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: backend-coverage
           path: |
@@ -116,7 +116,7 @@ jobs:
         run: pnpm test --coverage --run --reporter=verbose
 
       - name: Upload frontend coverage reports
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: frontend-coverage
           path: frontend/coverage/
@@ -173,7 +173,7 @@ jobs:
           echo "✅ Frontend build successful"
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: build-artifacts
           path: |
@@ -228,7 +228,7 @@ jobs:
 
     steps:
       - name: Download all coverage reports
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           path: ./coverage-reports
 
