@@ -158,21 +158,30 @@ task lint             # Run linters
 The project uses two workflows for Docker image publishing:
 
 #### CI Workflow (Development)
-Publishes images on every push to development branches:
+Publishes images on every push to development branches and validates all components:
 - **Backend**: `ghcr.io/mrowling/feeding-tracker-backend`
 - **Frontend**: `ghcr.io/mrowling/feeding-tracker-frontend`
+- **Helm Chart**: Validates chart syntax, templates, and packaging
 
 Development tags:
 - `latest` - Latest version from main branch
 - `pr-<number>` - Images from pull requests  
 - `<branch>-<sha>` - Images tagged with branch and commit SHA
 
+**CI Pipeline includes:**
+- Backend unit tests with coverage reporting
+- Frontend unit tests with coverage reporting  
+- Build validation for both services
+- Helm chart linting and template validation
+- Docker image building and publishing
+
 #### Release Workflow (Production)
-Publishes versioned images when you create a GitHub release:
-- Multi-platform support (linux/amd64, linux/arm64)
+Publishes versioned images and Helm charts when you create a GitHub release:
+- Multi-platform Docker images (linux/amd64, linux/arm64)
 - Semantic version tags: `v1.0.0`, `v1.0`, `v1`
 - Updates `latest` tag to point to the new release
-- Automatically updates release notes with Docker information
+- Publishes Helm chart to GitHub Pages repository
+- Automatically updates release notes with Docker and Helm information
 
 ### Creating a Release
 

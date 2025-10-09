@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'helm/twinfeed/**'
+      - "helm/twinfeed/**"
   release:
     types: [published]
 
@@ -77,11 +77,11 @@ jobs:
           # Extract version from release tag (remove 'v' prefix if present)
           VERSION=${GITHUB_REF#refs/tags/}
           VERSION=${VERSION#v}
-          
+
           # Update Chart.yaml with release version
           sed -i "s/^version:.*/version: ${VERSION}/" helm/twinfeed/Chart.yaml
           sed -i "s/^appVersion:.*/appVersion: \"${VERSION}\"/" helm/twinfeed/Chart.yaml
-          
+
           echo "Updated chart to version: ${VERSION}"
 
       - name: Package Helm chart
@@ -100,11 +100,11 @@ jobs:
         run: |
           # Copy new chart package to gh-pages
           cp helm/*.tgz gh-pages/
-          
+
           # Generate/update index.yaml
           cd gh-pages
           helm repo index . --url https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
-          
+
           # Commit and push changes
           git add .
           git commit -m "Release Helm chart version ${GITHUB_REF#refs/tags/}" || exit 0
