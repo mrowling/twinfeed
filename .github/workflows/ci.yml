@@ -1,0 +1,378 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main, initial-dev]
+  push:
+    branches: [main, initial-dev]
+
+env:
+  GO_VERSION: "1.23"
+  NODE_VERSION: "18"
+
+jobs:
+  # Backend Tests
+  backend-tests:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Cache Go modules
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('backend/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Install Go dependencies
+        working-directory: ./backend
+        run: |
+          go mod download
+          go mod tidy
+
+      - name: Run Go tests with coverage
+        working-directory: ./backend
+        run: |
+          go test ./... -v -race -coverprofile=coverage.out -covermode=atomic
+
+      - name: Generate coverage report
+        working-directory: ./backend
+        run: |
+          go tool cover -html=coverage.out -o coverage.html
+          go tool cover -func=coverage.out
+
+      - name: Upload backend coverage reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: |
+            backend/coverage.out
+            backend/coverage.html
+
+      - name: Check coverage thresholds
+        working-directory: ./backend
+        run: |
+          COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
+          echo "Total coverage: ${COVERAGE}%"
+          if (( $(echo "$COVERAGE < 55" | bc -l) )); then
+            echo "❌ Coverage ${COVERAGE}% is below minimum threshold of 55%"
+            exit 1
+          else
+            echo "✅ Coverage ${COVERAGE}% meets minimum threshold"
+          fi
+
+  # Frontend Tests
+  frontend-tests:
+    name: Frontend Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: latest
+
+      - name: Cache pnpm dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('frontend/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      - name: Install frontend dependencies
+        working-directory: ./frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Run TypeScript type checking
+        working-directory: ./frontend
+        run: pnpm type-check
+
+      - name: Run ESLint
+        working-directory: ./frontend
+        run: pnpm lint
+
+      - name: Run frontend tests with coverage
+        working-directory: ./frontend
+        run: pnpm test --coverage --run --reporter=verbose
+
+      - name: Upload frontend coverage reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: frontend/coverage/
+
+  # Build Tests
+  build-tests:
+    name: Build Tests
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: latest
+
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+            ~/.pnpm-store
+          key: ${{ runner.os }}-build-${{ hashFiles('backend/go.sum', 'frontend/pnpm-lock.yaml') }}
+
+      - name: Install dependencies
+        run: |
+          cd backend && go mod download
+          cd ../frontend && pnpm install --frozen-lockfile
+
+      - name: Build backend
+        working-directory: ./backend
+        run: |
+          go build -v -o bin/server cmd/server/main.go
+          echo "✅ Backend build successful"
+
+      - name: Build frontend
+        working-directory: ./frontend
+        run: |
+          pnpm build
+          echo "✅ Frontend build successful"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: |
+            backend/bin/
+            frontend/dist/
+
+  # Docker Build Test
+  docker-tests:
+    name: Docker Build and Push
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests]
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      backend-image: ${{ steps.meta-backend.outputs.tags }}
+      frontend-image: ${{ steps.meta-frontend.outputs.tags }}
+      image-digest-backend: ${{ steps.build-backend.outputs.digest }}
+      image-digest-frontend: ${{ steps.build-frontend.outputs.digest }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata for backend
+        id: meta-backend
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}-backend
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr,prefix=pr-
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+          labels: |
+            org.opencontainers.image.title=TwinFeed Backend
+            org.opencontainers.image.description=Backend service for TwinFeed breastfeeding tracker
+            org.opencontainers.image.url=https://github.com/${{ github.repository }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version={{version}}
+            org.opencontainers.image.created={{date 'RFC3339'}}
+            org.opencontainers.image.revision={{sha}}
+            org.opencontainers.image.licenses=MIT
+
+      - name: Extract metadata for frontend
+        id: meta-frontend
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}-frontend
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr,prefix=pr-
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+          labels: |
+            org.opencontainers.image.title=TwinFeed Frontend
+            org.opencontainers.image.description=Frontend service for TwinFeed breastfeeding tracker
+            org.opencontainers.image.url=https://github.com/${{ github.repository }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version={{version}}
+            org.opencontainers.image.created={{date 'RFC3339'}}
+            org.opencontainers.image.revision={{sha}}
+            org.opencontainers.image.licenses=MIT
+
+      - name: Build and push backend Docker image
+        id: build-backend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: ${{ steps.meta-backend.outputs.tags }}
+          labels: ${{ steps.meta-backend.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push frontend Docker image
+        id: build-frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: ${{ steps.meta-frontend.outputs.tags }}
+          labels: ${{ steps.meta-frontend.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Test Docker Compose
+        run: |
+          # Test that docker compose configuration is valid
+          docker compose config
+          echo "✅ Docker Compose configuration is valid"
+
+      - name: Display image information
+        run: |
+          echo "## 🐳 Docker Images Built and Pushed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Backend Image" >> $GITHUB_STEP_SUMMARY
+          echo "**Registry:** ghcr.io/${{ github.repository }}-backend" >> $GITHUB_STEP_SUMMARY
+          echo "**Tags:** ${{ steps.meta-backend.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Digest:** ${{ steps.build-backend.outputs.digest }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Frontend Image" >> $GITHUB_STEP_SUMMARY
+          echo "**Registry:** ghcr.io/${{ github.repository }}-frontend" >> $GITHUB_STEP_SUMMARY
+          echo "**Tags:** ${{ steps.meta-frontend.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Digest:** ${{ steps.build-frontend.outputs.digest }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🚀 **Images pushed to GitHub Container Registry!**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Pull Commands" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "# Pull backend image" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ghcr.io/${{ github.repository }}-backend:latest" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "# Pull frontend image" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ghcr.io/${{ github.repository }}-frontend:latest" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+  # Summary Job
+  test-summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests, build-tests, docker-tests]
+    if: always()
+
+    steps:
+      - name: Download all coverage reports
+        uses: actions/download-artifact@v4
+        with:
+          path: ./coverage-reports
+
+      - name: Test Results Summary
+        run: |
+          echo "## 🧪 Test Results Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Backend Tests
+          if [[ "${{ needs.backend-tests.result }}" == "success" ]]; then
+            echo "✅ **Backend Tests**: PASSED" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Backend Tests**: FAILED" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Frontend Tests
+          if [[ "${{ needs.frontend-tests.result }}" == "success" ]]; then
+            echo "✅ **Frontend Tests**: PASSED" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Frontend Tests**: FAILED" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Build Tests
+          if [[ "${{ needs.build-tests.result }}" == "success" ]]; then
+            echo "✅ **Build Tests**: PASSED" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Build Tests**: FAILED" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Docker Tests
+          if [[ "${{ needs.docker-tests.result }}" == "success" ]]; then
+            echo "✅ **Docker Build & Push**: PASSED" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Docker Build & Push**: FAILED" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📊 Coverage Reports" >> $GITHUB_STEP_SUMMARY
+          echo "- Backend coverage reports available in artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "- Frontend coverage reports available in artifacts" >> $GITHUB_STEP_SUMMARY
+
+          # Docker Images Info
+          if [[ "${{ needs.docker-tests.result }}" == "success" ]]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 🐳 Docker Images Published" >> $GITHUB_STEP_SUMMARY
+            echo "- **Backend**: ${{ needs.docker-tests.outputs.backend-image }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Frontend**: ${{ needs.docker-tests.outputs.frontend-image }}" >> $GITHUB_STEP_SUMMARY
+            echo "- Images available at: https://github.com/${{ github.repository }}/pkgs/container" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Overall result
+          if [[ "${{ needs.backend-tests.result }}" == "success" && 
+                "${{ needs.frontend-tests.result }}" == "success" && 
+                "${{ needs.build-tests.result }}" == "success" && 
+                "${{ needs.docker-tests.result }}" == "success" ]]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "🎉 **All tests passed!** Ready for merge." >> $GITHUB_STEP_SUMMARY
+            exit 0
+          else
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **Some tests failed.** Please review and fix before merging." >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi

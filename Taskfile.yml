@@ -1,0 +1,278 @@
+version: "3"
+
+vars:
+  BACKEND_DIR: backend
+  FRONTEND_DIR: frontend
+
+tasks:
+  default:
+    desc: Show available tasks
+    cmd: task --list
+
+  setup:
+    desc: Initial project setup - install dependencies
+    cmds:
+      - echo "Setting up TwinFeed project..."
+      - task: setup:backend
+      - task: setup:frontend
+      - echo "Setup complete! Run 'task dev' to start development"
+
+  setup:backend:
+    desc: Setup backend dependencies
+    dir: "{{.BACKEND_DIR}}"
+    cmds:
+      - echo "Installing Go dependencies..."
+      - go mod download
+      - go mod tidy
+
+  setup:frontend:
+    desc: Setup frontend dependencies
+    dir: "{{.FRONTEND_DIR}}"
+    cmds:
+      - echo "Installing Node.js dependencies with pnpm..."
+      - pnpm install
+
+  dev:
+    desc: Run both frontend and backend in development mode
+    deps: [dev:backend, dev:frontend]
+
+  dev:backend:
+    desc: Run backend in development mode with hot reload
+    dir: "{{.BACKEND_DIR}}"
+    cmd: go run cmd/server/main.go
+    env:
+      GIN_MODE: debug
+      DB_PATH: "./data/twinfeed.db"
+      PORT: "8080"
+
+  dev:frontend:
+    desc: Run frontend in development mode
+    dir: "{{.FRONTEND_DIR}}"
+    cmd: pnpm run dev
+    env:
+      VITE_API_URL: "http://localhost:8080/api/v1"
+
+  build:
+    desc: Build both frontend and backend for production
+    deps: [build:backend, build:frontend]
+
+  build:backend:
+    desc: Build backend binary for production
+    dir: "{{.BACKEND_DIR}}"
+    cmds:
+      - mkdir -p bin
+      - go build -ldflags="-w -s" -o bin/server cmd/server/main.go
+      - echo "Backend built successfully at bin/server"
+
+  build:frontend:
+    desc: Build frontend for production
+    dir: "{{.FRONTEND_DIR}}"
+    cmds:
+      - pnpm run build
+      - echo "Frontend built successfully at dist/"
+
+  test:
+    desc: Run all tests with coverage
+    deps: [test:backend, test:frontend]
+
+  test:backend:
+    desc: Run backend tests with coverage
+    dir: "{{.BACKEND_DIR}}"
+    cmds:
+      - go test ./... -v -race -coverprofile=coverage.out
+      - go tool cover -html=coverage.out -o coverage.html
+      - go tool cover -func=coverage.out
+
+  test:frontend:
+    desc: Run frontend tests
+    dir: "{{.FRONTEND_DIR}}"
+    cmds:
+      - pnpm test --run --coverage
+
+  test:watch:
+    desc: Run tests in watch mode (development)
+    deps: [test:backend:watch, test:frontend:watch]
+
+  test:backend:watch:
+    desc: Run backend tests in watch mode
+    dir: "{{.BACKEND_DIR}}"
+    cmd: |
+      while true; do
+        go test ./... -v
+        inotifywait -e modify -r . --include="\.go$" 2>/dev/null || sleep 2
+      done
+
+  test:frontend:watch:
+    desc: Run frontend tests in watch mode
+    dir: "{{.FRONTEND_DIR}}"
+    cmd: pnpm test --watch
+
+  test:coverage:
+    desc: Generate and display test coverage reports
+    deps: [test:backend:coverage, test:frontend:coverage]
+
+  test:backend:coverage:
+    desc: Generate backend test coverage report
+    dir: "{{.BACKEND_DIR}}"
+    cmds:
+      - go test ./... -v -race -coverprofile=coverage.out -covermode=atomic
+      - go tool cover -html=coverage.out -o coverage.html
+      - echo "Backend coverage report generated at backend/coverage.html"
+      - go tool cover -func=coverage.out
+
+  test:frontend:coverage:
+    desc: Generate frontend test coverage report
+    dir: "{{.FRONTEND_DIR}}"
+    cmds:
+      - pnpm test --coverage --run --reporter=verbose
+      - echo "Frontend coverage report generated at frontend/coverage/index.html"
+
+  test:unit:
+    desc: Run unit tests only
+    deps: [test:backend:unit, test:frontend:unit]
+
+  test:backend:unit:
+    desc: Run backend unit tests
+    dir: "{{.BACKEND_DIR}}"
+    cmd: go test ./internal/... -v -short
+
+  test:frontend:unit:
+    desc: Run frontend unit tests
+    dir: "{{.FRONTEND_DIR}}"
+    cmd: pnpm test --run
+
+  test:integration:
+    desc: Run integration tests
+    dir: "{{.BACKEND_DIR}}"
+    env:
+      INTEGRATION_TESTS: "true"
+    cmd: go test ./... -v -tags=integration
+
+  test:benchmark:
+    desc: Run benchmark tests
+    dir: "{{.BACKEND_DIR}}"
+    cmd: go test ./... -bench=. -benchmem
+
+  docker:
+    desc: Build all Docker images
+    deps: [docker:backend, docker:frontend]
+
+  docker:backend:
+    desc: Build backend Docker image
+    dir: "{{.BACKEND_DIR}}"
+    cmds:
+      - docker build -t twinfeed-backend:latest .
+      - echo "Backend Docker image built successfully"
+
+  docker:frontend:
+    desc: Build frontend Docker image
+    dir: "{{.FRONTEND_DIR}}"
+    cmds:
+      - docker build -t twinfeed-frontend:latest .
+      - echo "Frontend Docker image built successfully"
+
+  docker:pull:
+    desc: Pull published Docker images from GitHub Container Registry
+    cmds:
+      - docker pull ghcr.io/mrowling/feeding-tracker-backend:latest
+      - docker pull ghcr.io/mrowling/feeding-tracker-frontend:latest
+      - echo "✅ Published Docker images pulled successfully"
+
+  docker:pull:version:
+    desc: "Pull specific version of Docker images (usage: task docker:pull:version VERSION=v1.0.0)"
+    cmds:
+      - docker pull ghcr.io/mrowling/feeding-tracker-backend:{{.VERSION}}
+      - docker pull ghcr.io/mrowling/feeding-tracker-frontend:{{.VERSION}}
+      - echo "✅ Version {{.VERSION}} images pulled successfully"
+    requires:
+      vars: [VERSION]
+
+  docker:run:
+    desc: Run the application using published Docker images
+    deps: [docker:pull]
+    cmds:
+      - docker compose -f docker-compose.prod.yml up
+      - echo "Application running with published images"
+
+  docker:run:version:
+    desc: "Run specific version of the application (usage: task docker:run:version VERSION=v1.0.0)"
+    cmds:
+      - task: docker:pull:version
+        vars: { VERSION: "{{.VERSION}}" }
+      - RELEASE_TAG={{.VERSION}} docker compose -f docker-compose.prod.yml up
+      - echo "Application running with version {{.VERSION}}"
+    requires:
+      vars: [VERSION]
+
+  docker:run:detached:
+    desc: Run the application in detached mode using published images
+    deps: [docker:pull]
+    cmds:
+      - docker compose -f docker-compose.prod.yml up -d
+      - echo "Application running in background with published images"
+
+  start:
+    desc: Start all services using Docker Compose (local build)
+    cmds:
+      - task: docker
+      - docker compose up
+
+  start:prod:
+    desc: Start all services using published Docker images
+    cmds:
+      - task: docker:run
+
+  clean:
+    desc: Clean build artifacts and dependencies
+    cmds:
+      - task: clean:backend
+      - task: clean:frontend
+      - echo "Cleanup complete"
+
+  clean:backend:
+    desc: Clean backend build artifacts
+    dir: "{{.BACKEND_DIR}}"
+    cmds:
+      - rm -rf bin/
+      - rm -rf data/
+      - go clean -cache
+
+  clean:frontend:
+    desc: Clean frontend build artifacts and dependencies
+    dir: "{{.FRONTEND_DIR}}"
+    cmds:
+      - rm -rf dist/
+      - rm -rf node_modules/
+      - rm -f pnpm-lock.yaml
+
+  format:
+    desc: Format code in both projects
+    deps: [format:backend, format:frontend]
+
+  format:backend:
+    desc: Format Go code
+    dir: "{{.BACKEND_DIR}}"
+    cmd: go fmt ./...
+
+  format:frontend:
+    desc: Format frontend code
+    dir: "{{.FRONTEND_DIR}}"
+    cmd: pnpm run format
+
+  lint:
+    desc: Run linters for both projects
+    deps: [lint:backend, lint:frontend]
+
+  lint:backend:
+    desc: Run Go linters
+    dir: "{{.BACKEND_DIR}}"
+    cmds:
+      - go fmt ./...
+      - go vet ./...
+
+  lint:frontend:
+    desc: Run frontend linters
+    dir: "{{.FRONTEND_DIR}}"
+    cmds:
+      - pnpm run lint
+      - pnpm type-check

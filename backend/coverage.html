@@ -1,0 +1,645 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>server: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">twinfeed-backend/cmd/server/main.go (0.0%)</option>
+				
+				<option value="file1">twinfeed-backend/internal/database/db.go (82.8%)</option>
+				
+				<option value="file2">twinfeed-backend/internal/handlers/feed.go (66.7%)</option>
+				
+				<option value="file3">twinfeed-backend/internal/handlers/settings.go (71.9%)</option>
+				
+				<option value="file4">twinfeed-backend/internal/middleware/cors.go (100.0%)</option>
+				
+				<option value="file5">twinfeed-backend/internal/models/feed.go (100.0%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">no coverage</span>
+				<span class="cov1">low coverage</span>
+				<span class="cov2">*</span>
+				<span class="cov3">*</span>
+				<span class="cov4">*</span>
+				<span class="cov5">*</span>
+				<span class="cov6">*</span>
+				<span class="cov7">*</span>
+				<span class="cov8">*</span>
+				<span class="cov9">*</span>
+				<span class="cov10">high coverage</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package main
+
+import (
+        "context"
+        "log"
+        "net/http"
+        "os"
+        "os/signal"
+        "syscall"
+        "time"
+        "twinfeed-backend/internal/database"
+        "twinfeed-backend/internal/handlers"
+        "twinfeed-backend/internal/middleware"
+
+        "github.com/gin-gonic/gin"
+)
+
+func main() <span class="cov0" title="0">{
+        log.Println("Starting TwinFeed backend...")
+
+        // Initialize database
+        log.Println("Initializing database...")
+        if err := database.Initialize(); err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("Failed to initialize database: %v", err)
+        }</span>
+        <span class="cov0" title="0">defer database.Close()
+        log.Println("Database initialized successfully")
+
+        // Set Gin mode
+        if os.Getenv("GIN_MODE") == "release" </span><span class="cov0" title="0">{
+                gin.SetMode(gin.ReleaseMode)
+        }</span> else<span class="cov0" title="0"> {
+                log.Println("Running in debug mode")
+        }</span>
+
+        // Create Gin router
+        <span class="cov0" title="0">log.Println("Setting up router and middleware...")
+        router := gin.Default()
+
+        // Add middleware
+        router.Use(middleware.CORS())
+        router.Use(gin.Logger())
+        router.Use(gin.Recovery())
+
+        // Health check endpoint
+        router.GET("/health", handlers.HealthCheck)
+
+        // API routes
+        v1 := router.Group("/api/v1")
+        </span><span class="cov0" title="0">{
+                v1.POST("/feed", handlers.CreateFeed)
+                v1.GET("/feeds", handlers.GetFeeds)
+                v1.DELETE("/feeds", handlers.DeleteAllFeeds)
+
+                // Settings routes
+                v1.GET("/settings", handlers.GetSettings)
+                v1.PUT("/settings", handlers.UpdateSettings)
+                v1.POST("/settings/reset", handlers.ResetSettings)
+        }</span>
+        <span class="cov0" title="0">log.Println("Routes configured")
+
+        // Get port from environment or default to 8080
+        port := os.Getenv("PORT")
+        if port == "" </span><span class="cov0" title="0">{
+                port = "8080"
+        }</span>
+        <span class="cov0" title="0">log.Printf("Server will start on port %s", port)
+
+        // Create HTTP server
+        srv := &amp;http.Server{
+                Addr:         ":" + port,
+                Handler:      router,
+                ReadTimeout:  15 * time.Second,
+                WriteTimeout: 15 * time.Second,
+                IdleTimeout:  60 * time.Second,
+        }
+
+        // Start server in a goroutine
+        go func() </span><span class="cov0" title="0">{
+                log.Printf("Starting TwinFeed backend server on port %s", port)
+                if err := srv.ListenAndServe(); err != nil &amp;&amp; err != http.ErrServerClosed </span><span class="cov0" title="0">{
+                        log.Fatalf("Failed to start server: %v", err)
+                }</span>
+        }()
+
+        // Wait for interrupt signal to gracefully shutdown the server
+        <span class="cov0" title="0">quit := make(chan os.Signal, 1)
+        signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+        &lt;-quit
+        log.Println("Shutting down server...")
+
+        // Give outstanding requests 30 seconds to complete
+        ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+        defer cancel()
+
+        if err := srv.Shutdown(ctx); err != nil </span><span class="cov0" title="0">{
+                log.Printf("Server forced to shutdown: %v", err)
+        }</span> else<span class="cov0" title="0"> {
+                log.Println("Server shutdown complete")
+        }</span>
+}
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package database
+
+import (
+        "fmt"
+        "log"
+        "os"
+        "path/filepath"
+        "twinfeed-backend/internal/models"
+
+        "gorm.io/driver/sqlite"
+        "gorm.io/gorm"
+        "gorm.io/gorm/logger"
+)
+
+var DB *gorm.DB
+
+// Initialize sets up the database connection and runs migrations
+func Initialize() error <span class="cov8" title="8">{
+        dbPath := os.Getenv("DB_PATH")
+        if dbPath == "" </span><span class="cov1" title="1">{
+                dbPath = "./data/twinfeed.db"
+        }</span>
+
+        // Ensure the directory exists
+        <span class="cov8" title="8">dir := filepath.Dir(dbPath)
+        if err := os.MkdirAll(dir, 0755); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to create database directory: %v", err)
+        }</span>
+
+        // Configure GORM logger
+        <span class="cov8" title="8">logLevel := logger.Silent
+        if os.Getenv("GIN_MODE") != "release" </span><span class="cov8" title="8">{
+                logLevel = logger.Info
+        }</span>
+
+        // Open database connection
+        <span class="cov8" title="8">db, err := gorm.Open(sqlite.Open(dbPath), &amp;gorm.Config{
+                Logger: logger.Default.LogMode(logLevel),
+        })
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to connect to database: %v", err)
+        }</span>
+
+        // Set connection pool settings
+        <span class="cov8" title="8">sqlDB, err := db.DB()
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to get sql.DB: %v", err)
+        }</span>
+
+        <span class="cov8" title="8">sqlDB.SetMaxOpenConns(1) // SQLite only supports one writer
+        sqlDB.SetMaxIdleConns(1)
+
+        // Run migrations
+        if err := db.AutoMigrate(&amp;models.FeedSession{}, &amp;models.UserSettings{}); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to migrate database: %v", err)
+        }</span>
+
+        <span class="cov8" title="8">DB = db
+        log.Printf("Database initialized successfully at %s", dbPath)
+        return nil</span>
+}
+
+// GetDB returns the database instance
+func GetDB() *gorm.DB <span class="cov8" title="7">{
+        return DB
+}</span>
+
+// Close closes the database connection
+func Close() error <span class="cov10" title="12">{
+        if DB != nil </span><span class="cov8" title="9">{
+                sqlDB, err := DB.DB()
+                if err != nil </span><span class="cov0" title="0">{
+                        return err
+                }</span>
+                <span class="cov8" title="9">return sqlDB.Close()</span>
+        }
+        <span class="cov4" title="3">return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">package handlers
+
+import (
+        "net/http"
+        "strconv"
+        "time"
+        "twinfeed-backend/internal/database"
+        "twinfeed-backend/internal/models"
+
+        "github.com/gin-gonic/gin"
+)
+
+// CreateFeedRequest represents the request body for creating a feed session
+type CreateFeedRequest struct {
+        Twin      string    `json:"twin" binding:"required,oneof=A B"`
+        Side      string    `json:"side" binding:"required,oneof=Left Right"`
+        Duration  int       `json:"duration" binding:"required,min=1"`
+        StartTime time.Time `json:"start_time" binding:"required"`
+}
+
+// FeedsResponse represents the response for fetching feeds
+type FeedsResponse struct {
+        Feeds []models.FeedSession `json:"feeds"`
+        Total int64                `json:"total"`
+}
+
+// DeleteResponse represents the response for deleting feeds
+type DeleteResponse struct {
+        Message      string `json:"message"`
+        DeletedCount int64  `json:"deleted_count"`
+}
+
+// CreateFeed creates a new feeding session
+func CreateFeed(c *gin.Context) <span class="cov10" title="5">{
+        var req CreateFeedRequest
+        if err := c.ShouldBindJSON(&amp;req); err != nil </span><span class="cov8" title="4">{
+                c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+                return
+        }</span>
+
+        // Create new feed session
+        <span class="cov1" title="1">feed := models.FeedSession{
+                Twin:      req.Twin,
+                Side:      req.Side,
+                Duration:  req.Duration,
+                StartTime: req.StartTime,
+        }
+
+        db := database.GetDB()
+        if err := db.Create(&amp;feed).Error; err != nil </span><span class="cov0" title="0">{
+                c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create feed session"})
+                return
+        }</span>
+
+        <span class="cov1" title="1">c.JSON(http.StatusCreated, feed)</span>
+}
+
+// GetFeeds retrieves all feeding sessions with optional pagination
+func GetFeeds(c *gin.Context) <span class="cov8" title="4">{
+        db := database.GetDB()
+
+        // Parse query parameters
+        limitStr := c.DefaultQuery("limit", "100")
+        offsetStr := c.DefaultQuery("offset", "0")
+
+        limit, err := strconv.Atoi(limitStr)
+        if err != nil || limit &lt; 1 </span><span class="cov0" title="0">{
+                limit = 100
+        }</span>
+        <span class="cov8" title="4">if limit &gt; 1000 </span><span class="cov0" title="0">{
+                limit = 1000 // Maximum limit
+        }</span>
+
+        <span class="cov8" title="4">offset, err := strconv.Atoi(offsetStr)
+        if err != nil || offset &lt; 0 </span><span class="cov0" title="0">{
+                offset = 0
+        }</span>
+
+        <span class="cov8" title="4">var feeds []models.FeedSession
+        var total int64
+
+        // Get total count
+        if err := db.Model(&amp;models.FeedSession{}).Count(&amp;total).Error; err != nil </span><span class="cov0" title="0">{
+                c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count feed sessions"})
+                return
+        }</span>
+
+        // Get feeds with pagination, ordered by start_time descending
+        <span class="cov8" title="4">if err := db.Order("start_time DESC").
+                Limit(limit).
+                Offset(offset).
+                Find(&amp;feeds).Error; err != nil </span><span class="cov0" title="0">{
+                c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch feed sessions"})
+                return
+        }</span>
+
+        <span class="cov8" title="4">response := FeedsResponse{
+                Feeds: feeds,
+                Total: total,
+        }
+
+        c.JSON(http.StatusOK, response)</span>
+}
+
+// DeleteAllFeeds deletes all feeding sessions
+func DeleteAllFeeds(c *gin.Context) <span class="cov4" title="2">{
+        db := database.GetDB()
+
+        // Count existing records before deletion
+        var count int64
+        if err := db.Model(&amp;models.FeedSession{}).Count(&amp;count).Error; err != nil </span><span class="cov0" title="0">{
+                c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count feed sessions"})
+                return
+        }</span>
+
+        // Delete all records
+        <span class="cov4" title="2">result := db.Unscoped().Delete(&amp;models.FeedSession{}, "1=1")
+        if result.Error != nil </span><span class="cov0" title="0">{
+                c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete feed sessions"})
+                return
+        }</span>
+
+        <span class="cov4" title="2">response := DeleteResponse{
+                Message:      "All feeding sessions deleted",
+                DeletedCount: count,
+        }
+
+        c.JSON(http.StatusOK, response)</span>
+}
+
+// HealthCheck returns the health status of the API
+func HealthCheck(c *gin.Context) <span class="cov1" title="1">{
+        db := database.GetDB()
+
+        // Test database connection
+        sqlDB, err := db.DB()
+        if err != nil </span><span class="cov0" title="0">{
+                c.JSON(http.StatusServiceUnavailable, gin.H{
+                        "status": "unhealthy",
+                        "error":  "database connection failed",
+                })
+                return
+        }</span>
+
+        <span class="cov1" title="1">if err := sqlDB.Ping(); err != nil </span><span class="cov0" title="0">{
+                c.JSON(http.StatusServiceUnavailable, gin.H{
+                        "status": "unhealthy",
+                        "error":  "database ping failed",
+                })
+                return
+        }</span>
+
+        <span class="cov1" title="1">c.JSON(http.StatusOK, gin.H{
+                "status":    "healthy",
+                "timestamp": time.Now().UTC(),
+                "service":   "twinfeed-backend",
+        })</span>
+}
+</pre>
+		
+		<pre class="file" id="file3" style="display: none">package handlers
+
+import (
+        "net/http"
+        "twinfeed-backend/internal/database"
+        "twinfeed-backend/internal/models"
+
+        "github.com/gin-gonic/gin"
+        "gorm.io/gorm"
+)
+
+// GetSettings retrieves user settings
+func GetSettings(c *gin.Context) <span class="cov4" title="2">{
+        db := database.GetDB()
+
+        var settings models.UserSettings
+
+        // Try to find existing settings (assuming single user for now)
+        result := db.First(&amp;settings)
+
+        if result.Error != nil </span><span class="cov1" title="1">{
+                if result.Error == gorm.ErrRecordNotFound </span><span class="cov1" title="1">{
+                        // Create default settings if none exist
+                        settings = models.UserSettings{
+                                TwinAName:            "Twin A",
+                                TwinBName:            "Twin B",
+                                TwinAColor:           "blue",
+                                TwinBColor:           "pink",
+                                DefaultTimerInterval: 100,
+                                Theme:                "system",
+                        }
+
+                        if err := db.Create(&amp;settings).Error; err != nil </span><span class="cov0" title="0">{
+                                c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create default settings"})
+                                return
+                        }</span>
+                } else<span class="cov0" title="0"> {
+                        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve settings"})
+                        return
+                }</span>
+        }
+
+        <span class="cov4" title="2">c.JSON(http.StatusOK, settings)</span>
+}
+
+// UpdateSettings updates user settings
+func UpdateSettings(c *gin.Context) <span class="cov10" title="6">{
+        db := database.GetDB()
+
+        var updateData models.UserSettings
+        if err := c.ShouldBindJSON(&amp;updateData); err != nil </span><span class="cov1" title="1">{
+                c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+                return
+        }</span>
+
+        <span class="cov9" title="5">var settings models.UserSettings
+
+        // Try to find existing settings
+        result := db.First(&amp;settings)
+
+        if result.Error != nil </span><span class="cov4" title="2">{
+                if result.Error == gorm.ErrRecordNotFound </span><span class="cov4" title="2">{
+                        // Create new settings if none exist
+                        settings = models.UserSettings{
+                                TwinAName:            updateData.TwinAName,
+                                TwinBName:            updateData.TwinBName,
+                                TwinAColor:           updateData.TwinAColor,
+                                TwinBColor:           updateData.TwinBColor,
+                                DefaultTimerInterval: updateData.DefaultTimerInterval,
+                                Theme:                updateData.Theme,
+                        }
+
+                        if err := db.Create(&amp;settings).Error; err != nil </span><span class="cov0" title="0">{
+                                c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create settings"})
+                                return
+                        }</span>
+                } else<span class="cov0" title="0"> {
+                        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve settings"})
+                        return
+                }</span>
+        } else<span class="cov6" title="3"> {
+                // Update existing settings
+                settings.TwinAName = updateData.TwinAName
+                settings.TwinBName = updateData.TwinBName
+                settings.TwinAColor = updateData.TwinAColor
+                settings.TwinBColor = updateData.TwinBColor
+                settings.DefaultTimerInterval = updateData.DefaultTimerInterval
+                settings.Theme = updateData.Theme
+
+                if err := db.Save(&amp;settings).Error; err != nil </span><span class="cov0" title="0">{
+                        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update settings"})
+                        return
+                }</span>
+        }
+
+        <span class="cov9" title="5">c.JSON(http.StatusOK, settings)</span>
+}
+
+// ResetSettings resets settings to defaults
+func ResetSettings(c *gin.Context) <span class="cov4" title="2">{
+        db := database.GetDB()
+
+        var settings models.UserSettings
+
+        // Try to find existing settings
+        result := db.First(&amp;settings)
+
+        if result.Error != nil &amp;&amp; result.Error != gorm.ErrRecordNotFound </span><span class="cov0" title="0">{
+                c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve settings"})
+                return
+        }</span>
+
+        // Set to defaults
+        <span class="cov4" title="2">settings.TwinAName = "Twin A"
+        settings.TwinBName = "Twin B"
+        settings.TwinAColor = "blue"
+        settings.TwinBColor = "pink"
+        settings.DefaultTimerInterval = 100
+        settings.Theme = "system"
+
+        if result.Error == gorm.ErrRecordNotFound </span><span class="cov1" title="1">{
+                // Create new record
+                if err := db.Create(&amp;settings).Error; err != nil </span><span class="cov0" title="0">{
+                        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create settings"})
+                        return
+                }</span>
+        } else<span class="cov1" title="1"> {
+                // Update existing record
+                if err := db.Save(&amp;settings).Error; err != nil </span><span class="cov0" title="0">{
+                        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to reset settings"})
+                        return
+                }</span>
+        }
+
+        <span class="cov4" title="2">c.JSON(http.StatusOK, settings)</span>
+}
+</pre>
+		
+		<pre class="file" id="file4" style="display: none">package middleware
+
+import (
+        "time"
+
+        "github.com/gin-contrib/cors"
+        "github.com/gin-gonic/gin"
+)
+
+// CORS returns a CORS middleware configured for the TwinFeed app
+func CORS() gin.HandlerFunc <span class="cov10" title="7">{
+        return cors.New(cors.Config{
+                AllowAllOrigins:  true,
+                AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
+                AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type", "Authorization"},
+                ExposeHeaders:    []string{"Content-Length"},
+                AllowCredentials: false, // Must be false when AllowAllOrigins is true
+                MaxAge:           12 * time.Hour,
+        })
+}</span>
+</pre>
+		
+		<pre class="file" id="file5" style="display: none">package models
+
+import (
+        "time"
+)
+
+type FeedSession struct {
+        ID        uint      `json:"id" gorm:"primaryKey"`
+        Twin      string    `json:"twin" gorm:"not null" validate:"required,oneof=A B"`
+        Side      string    `json:"side" gorm:"not null" validate:"required,oneof=Left Right"`
+        Duration  int       `json:"duration" gorm:"not null" validate:"required,min=1"`
+        StartTime time.Time `json:"start_time" gorm:"not null" validate:"required"`
+        CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
+        UpdatedAt time.Time `json:"updated_at" gorm:"autoUpdateTime"`
+}
+
+// TableName specifies the table name for the FeedSession model
+func (FeedSession) TableName() string <span class="cov8" title="1">{
+        return "feed_sessions"
+}</span>
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>
