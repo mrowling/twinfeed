@@ -87,7 +87,7 @@ tasks:
     desc: Run frontend tests
     dir: "{{.FRONTEND_DIR}}"
     cmds:
-      - pnpm test --run
+      - pnpm test --run --coverage
 
   test:watch:
     desc: Run tests in watch mode (development)
