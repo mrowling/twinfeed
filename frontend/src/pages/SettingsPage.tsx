@@ -405,10 +405,11 @@ function SettingsPage() {
                     onClick={() =>
                       handleSettingChange("twinAColor", color.value)
                     }
-                    className={`w-8 h-8 rounded-full ${color.class} border-2 transition-all ${localSettings.twinAColor === color.value
-                      ? "border-foreground ring-2 ring-offset-2 ring-foreground"
-                      : "border-border hover:border-foreground"
-                      }`}
+                    className={`w-8 h-8 rounded-full ${color.class} border-2 transition-all ${
+                      localSettings.twinAColor === color.value
+                        ? "border-foreground ring-2 ring-offset-2 ring-foreground"
+                        : "border-border hover:border-foreground"
+                    }`}
                     title={color.name}
                   />
                 ))}
@@ -442,10 +443,11 @@ function SettingsPage() {
                     onClick={() =>
                       handleSettingChange("twinBColor", color.value)
                     }
-                    className={`w-8 h-8 rounded-full ${color.class} border-2 transition-all ${localSettings.twinBColor === color.value
-                      ? "border-foreground ring-2 ring-offset-2 ring-foreground"
-                      : "border-border hover:border-foreground"
-                      }`}
+                    className={`w-8 h-8 rounded-full ${color.class} border-2 transition-all ${
+                      localSettings.twinBColor === color.value
+                        ? "border-foreground ring-2 ring-offset-2 ring-foreground"
+                        : "border-border hover:border-foreground"
+                    }`}
                     title={color.name}
                   />
                 ))}
