@@ -275,8 +275,8 @@ jobs:
 
       - name: Test Docker Compose
         run: |
-          # Test that docker-compose configuration is valid
-          docker-compose config
+          # Test that docker compose configuration is valid
+          docker compose config
           echo "✅ Docker Compose configuration is valid"
 
       - name: Display image information
