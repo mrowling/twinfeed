@@ -26,7 +26,7 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
 
       - name: Cache Go modules
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cache/go-build
@@ -92,7 +92,7 @@ jobs:
           version: latest
 
       - name: Cache pnpm dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.pnpm-store
           key: ${{ runner.os }}-pnpm-${{ hashFiles('frontend/pnpm-lock.yaml') }}
@@ -125,7 +125,9 @@ jobs:
   build-tests:
     name: Build Tests
     runs-on: ubuntu-latest
-    needs: [backend-tests, frontend-tests]
+    needs:
+      - backend-tests
+      - frontend-tests
 
     steps:
       - name: Checkout code
@@ -147,7 +149,7 @@ jobs:
           version: latest
 
       - name: Cache dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cache/go-build
@@ -180,11 +182,52 @@ jobs:
             backend/bin/
             frontend/dist/
 
+  # Helm Chart Tests
+  helm-tests:
+    name: Helm Chart Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: "3.13.0"
+
+      - name: Lint Helm chart
+        run: |
+          cd helm/twinfeed
+          helm lint .
+          echo "✅ Helm chart lint successful"
+
+      - name: Template Helm chart
+        run: |
+          cd helm/twinfeed
+          helm template twinfeed . --debug > /dev/null
+          echo "✅ Helm chart template rendering successful"
+
+      - name: Package Helm chart
+        run: |
+          cd helm
+          helm package twinfeed
+          echo "✅ Helm chart packaging successful"
+
+      - name: Upload chart artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: helm-chart
+          path: helm/*.tgz
+
   # Docker Build Test
   docker-tests:
     name: Docker Build and Push
     runs-on: ubuntu-latest
-    needs: [backend-tests, frontend-tests]
+    needs:
+      - backend-tests
+      - frontend-tests
+      - helm-tests
     permissions:
       contents: read
       packages: write
@@ -216,7 +259,7 @@ jobs:
           tags: |
             type=ref,event=branch
             type=ref,event=pr,prefix=pr-
-            type=sha,prefix={{branch}}-
+            type=sha,prefix=sha-
             type=raw,value=latest,enable={{is_default_branch}}
           labels: |
             org.opencontainers.image.title=TwinFeed Backend
@@ -236,7 +279,7 @@ jobs:
           tags: |
             type=ref,event=branch
             type=ref,event=pr,prefix=pr-
-            type=sha,prefix={{branch}}-
+            type=sha,prefix=sha-
             type=raw,value=latest,enable={{is_default_branch}}
           labels: |
             org.opencontainers.image.title=TwinFeed Frontend
@@ -257,8 +300,6 @@ jobs:
           push: true
           tags: ${{ steps.meta-backend.outputs.tags }}
           labels: ${{ steps.meta-backend.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
       - name: Build and push frontend Docker image
         id: build-frontend
@@ -269,8 +310,6 @@ jobs:
           push: true
           tags: ${{ steps.meta-frontend.outputs.tags }}
           labels: ${{ steps.meta-frontend.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
       - name: Test Docker Compose
         run: |
@@ -307,7 +346,12 @@ jobs:
   test-summary:
     name: Test Summary
     runs-on: ubuntu-latest
-    needs: [backend-tests, frontend-tests, build-tests, docker-tests]
+    needs:
+      - backend-tests
+      - frontend-tests
+      - build-tests
+      - helm-tests
+      - docker-tests
     if: always()
 
     steps:
@@ -342,6 +386,13 @@ jobs:
             echo "❌ **Build Tests**: FAILED" >> $GITHUB_STEP_SUMMARY
           fi
 
+          # Helm Tests
+          if [[ "${{ needs.helm-tests.result }}" == "success" ]]; then
+            echo "✅ **Helm Chart Tests**: PASSED" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Helm Chart Tests**: FAILED" >> $GITHUB_STEP_SUMMARY
+          fi
+
           # Docker Tests
           if [[ "${{ needs.docker-tests.result }}" == "success" ]]; then
             echo "✅ **Docker Build & Push**: PASSED" >> $GITHUB_STEP_SUMMARY
@@ -363,10 +414,19 @@ jobs:
             echo "- Images available at: https://github.com/${{ github.repository }}/pkgs/container" >> $GITHUB_STEP_SUMMARY
           fi
 
+          # Helm Chart Info
+          if [[ "${{ needs.helm-tests.result }}" == "success" ]]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 📦 Helm Chart" >> $GITHUB_STEP_SUMMARY
+            echo "- Chart validated and packaged successfully" >> $GITHUB_STEP_SUMMARY
+            echo "- Helm chart available in artifacts" >> $GITHUB_STEP_SUMMARY
+          fi
+
           # Overall result
           if [[ "${{ needs.backend-tests.result }}" == "success" && 
                 "${{ needs.frontend-tests.result }}" == "success" && 
                 "${{ needs.build-tests.result }}" == "success" && 
+                "${{ needs.helm-tests.result }}" == "success" && 
                 "${{ needs.docker-tests.result }}" == "success" ]]; then
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "🎉 **All tests passed!** Ready for merge." >> $GITHUB_STEP_SUMMARY

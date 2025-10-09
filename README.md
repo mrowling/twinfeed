@@ -104,30 +104,84 @@ task lint             # Run linters
    task docker:run:version VERSION=v1.0.0
    ```
 
+### Using Helm (Kubernetes)
+
+1. **Add the Helm repository**
+   ```bash
+   helm repo add twinfeed https://mrowling.github.io/feeding-tracker
+   helm repo update
+   ```
+
+2. **Install TwinFeed**
+   ```bash
+   # Basic installation
+   helm install twinfeed twinfeed/twinfeed
+
+   # Install with custom namespace
+   helm install twinfeed twinfeed/twinfeed --create-namespace --namespace twinfeed
+
+   # Production installation with ingress
+   helm install twinfeed twinfeed/twinfeed \
+     --set global.imageTag=v1.0.0 \
+     --set ingress.enabled=true \
+     --set ingress.hosts[0].host=twinfeed.example.com
+   ```
+
+3. **Using Task commands**
+   ```bash
+   # Local development
+   task helm:install:dev
+   
+   # Specific version
+   task helm:install:version VERSION=v1.0.0
+   
+   # Validate chart before installing
+   task helm:validate
+   ```
+
 4. **Access the application**
-   - Frontend: http://localhost:3000
-   - Backend API: http://localhost:8080
+   - **With Ingress**: https://your-domain.com
+   - **Port Forward**: `kubectl port-forward svc/twinfeed-frontend 3000:80`
+   - **NodePort**: Check service external IP/port
+
+### Deployment Options Summary
+
+| Method | Use Case | Command |
+|--------|----------|---------|
+| **Docker Compose** | Local development, simple deployments | `docker compose up` |
+| **Docker (Production)** | Container platforms, manual deployment | `docker compose -f docker-compose.prod.yml up` |
+| **Helm Chart** | Kubernetes clusters, enterprise deployment | `helm install twinfeed twinfeed/twinfeed` |
+| **Task Automation** | Developer workflows, CI/CD integration | `task start:prod` |
 
 ### Published Docker Images
 
 The project uses two workflows for Docker image publishing:
 
 #### CI Workflow (Development)
-Publishes images on every push to development branches:
+Publishes images on every push to development branches and validates all components:
 - **Backend**: `ghcr.io/mrowling/feeding-tracker-backend`
 - **Frontend**: `ghcr.io/mrowling/feeding-tracker-frontend`
+- **Helm Chart**: Validates chart syntax, templates, and packaging
 
 Development tags:
 - `latest` - Latest version from main branch
 - `pr-<number>` - Images from pull requests  
 - `<branch>-<sha>` - Images tagged with branch and commit SHA
 
+**CI Pipeline includes:**
+- Backend unit tests with coverage reporting
+- Frontend unit tests with coverage reporting  
+- Build validation for both services
+- Helm chart linting and template validation
+- Docker image building and publishing
+
 #### Release Workflow (Production)
-Publishes versioned images when you create a GitHub release:
-- Multi-platform support (linux/amd64, linux/arm64)
+Publishes versioned images and Helm charts when you create a GitHub release:
+- Multi-platform Docker images (linux/amd64, linux/arm64)
 - Semantic version tags: `v1.0.0`, `v1.0`, `v1`
 - Updates `latest` tag to point to the new release
-- Automatically updates release notes with Docker information
+- Publishes Helm chart to GitHub Pages repository
+- Automatically updates release notes with Docker and Helm information
 
 ### Creating a Release
 

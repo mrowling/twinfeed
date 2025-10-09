@@ -276,3 +276,90 @@ tasks:
     cmds:
       - pnpm run lint
       - pnpm type-check
+
+  # Helm Chart Tasks
+  helm:lint:
+    desc: Lint the Helm chart
+    dir: helm/twinfeed
+    cmd: helm lint .
+
+  helm:template:
+    desc: Render Helm chart templates locally
+    dir: helm/twinfeed
+    cmd: helm template twinfeed . --debug
+
+  helm:package:
+    desc: Package the Helm chart
+    dir: helm
+    cmds:
+      - helm package twinfeed
+      - echo "✅ Helm chart packaged successfully"
+
+  helm:install:
+    desc: Install TwinFeed using Helm chart (local)
+    dir: helm/twinfeed
+    cmds:
+      - helm install twinfeed . --create-namespace --namespace twinfeed
+      - echo "✅ TwinFeed installed successfully"
+      - echo "Run 'task helm:status' to check deployment status"
+
+  helm:install:dev:
+    desc: Install TwinFeed using Helm chart with debug mode
+    dir: helm/twinfeed
+    cmds:
+      - helm install twinfeed . --create-namespace --namespace twinfeed-dev --debug
+      - echo "✅ TwinFeed (dev) installed successfully"
+
+  helm:install:version:
+    desc: "Install specific version of TwinFeed (usage: task helm:install:version VERSION=v1.0.0)"
+    dir: helm/twinfeed
+    cmds:
+      - helm install twinfeed . --set global.imageTag={{.VERSION}} --create-namespace --namespace twinfeed
+      - echo "✅ TwinFeed version {{.VERSION}} installed successfully"
+    requires:
+      vars: [VERSION]
+
+  helm:upgrade:
+    desc: Upgrade TwinFeed Helm deployment
+    dir: helm/twinfeed
+    cmds:
+      - helm upgrade twinfeed . --namespace twinfeed
+      - echo "✅ TwinFeed upgraded successfully"
+
+  helm:upgrade:version:
+    desc: "Upgrade to specific version (usage: task helm:upgrade:version VERSION=v1.0.0)"
+    dir: helm/twinfeed
+    cmds:
+      - helm upgrade twinfeed . --set global.imageTag={{.VERSION}} --namespace twinfeed
+      - echo "✅ TwinFeed upgraded to version {{.VERSION}}"
+    requires:
+      vars: [VERSION]
+
+  helm:uninstall:
+    desc: Uninstall TwinFeed Helm deployment
+    cmd: helm uninstall twinfeed --namespace twinfeed
+
+  helm:status:
+    desc: Show status of TwinFeed Helm deployment
+    cmd: helm status twinfeed --namespace twinfeed
+
+  helm:test:
+    desc: Run Helm chart tests
+    cmd: helm test twinfeed --namespace twinfeed
+
+  helm:dry-run:
+    desc: Perform a dry run installation
+    dir: helm/twinfeed
+    cmd: helm install twinfeed . --dry-run --debug --namespace twinfeed
+
+  helm:dry-run:prod:
+    desc: Perform a dry run installation with custom production values
+    dir: helm/twinfeed
+    cmd: helm install twinfeed . --set replicaCount=2 --set ingress.enabled=true --dry-run --debug --namespace twinfeed-prod
+
+  helm:validate:
+    desc: Validate Helm chart (lint + dry-run)
+    cmds:
+      - task: helm:lint
+      - task: helm:dry-run
+      - echo "✅ Helm chart validation successful"

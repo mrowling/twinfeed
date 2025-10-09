@@ -1,0 +1,145 @@
+# Default values for twinfeed.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+image:
+  backend:
+    repository: ghcr.io/mrowling/feeding-tracker-backend
+    pullPolicy: IfNotPresent
+    tag: "latest"
+  frontend:
+    repository: ghcr.io/mrowling/feeding-tracker-frontend
+    pullPolicy: IfNotPresent
+    tag: "latest"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Automatically mount a ServiceAccount's API credentials?
+  automount: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  {}
+  # fsGroup: 2000
+
+securityContext:
+  {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+backend:
+  service:
+    type: ClusterIP
+    port: 8080
+    targetPort: 8080
+  env:
+    GIN_MODE: "release"
+    DB_PATH: "/data/twinfeed.db"
+    PORT: "8080"
+  persistence:
+    enabled: true
+    storageClass: ""
+    accessMode: ReadWriteOnce
+    size: 1Gi
+    annotations: {}
+  resources:
+    {}
+    # limits:
+    #   cpu: 500m
+    #   memory: 512Mi
+    # requests:
+    #   cpu: 250m
+    #   memory: 256Mi
+
+frontend:
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 80
+  env:
+    VITE_API_URL: "" # Will be set dynamically to backend service or ingress
+  resources:
+    {}
+    # limits:
+    #   cpu: 100m
+    #   memory: 128Mi
+    # requests:
+    #   cpu: 50m
+    #   memory: 64Mi
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: twinfeed.local
+      paths:
+        - path: /
+          pathType: Prefix
+          service: frontend
+        - path: /api
+          pathType: Prefix
+          service: backend
+        - path: /health
+          pathType: Prefix
+          service: backend
+  tls:
+    []
+    # - secretName: letsencrypt-dns-tls-prod
+    #   hosts:
+    #     - twinfeed.local
+config:
+  # Environment: development or production
+  environment: "development"
+
+  # In development: frontend calls backend directly on different ports (localhost:3000 -> localhost:8080)
+  # In production: frontend calls backend via same hostname/ingress (twinfeed.com -> twinfeed.com/api)
+  production:
+    # Use ingress hostname for API calls in production
+    useIngressForApi: true
+    # API path prefix (e.g., /api)
+    apiPath: "/api"
+
+# Additional volumes on the output Deployment definition.
+volumes: []
+# - name: foo
+#   secret:
+#     secretName: mysecret
+#     optional: false
+
+# Additional volumeMounts on the output Deployment definition.
+volumeMounts: []
+# - name: foo
+#   mountPath: "/etc/foo"
+#   readOnly: true
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Global configuration
+global:
+  # Image tag override for both frontend and backend
+  imageTag: ""
+  # Image pull policy override
+  imagePullPolicy: ""
