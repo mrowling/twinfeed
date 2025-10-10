@@ -28,7 +28,7 @@ export interface CreateSessionRequest {
 
 export interface AddEventRequest {
   session_id: number;
-  event_type: "start" | "pause" | "end";
+  event_type: "start" | "pause" | "end" | "side_change";
   timestamp: string;
   side: "Left" | "Right";
 }

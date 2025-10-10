@@ -1,7 +1,7 @@
 export interface FeedEvent {
   id?: number;
   feed_session_id: number;
-  event_type: "start" | "pause" | "end";
+  event_type: "start" | "pause" | "end" | "side_change";
   side: "Left" | "Right";
   timestamp: string; // ISO string
   created_at?: string; // ISO string
@@ -31,7 +31,7 @@ export interface AppState {
 
 export type Twin = "A" | "B";
 export type Side = "Left" | "Right";
-export type EventType = "start" | "pause" | "end";
+export type EventType = "start" | "pause" | "end" | "side_change";
 
 export interface UserSettings {
   id?: number;
@@ -83,5 +83,5 @@ export function calculateDuration(events: FeedEvent[]): number {
 export function isSessionActive(events: FeedEvent[]): boolean {
   if (events.length === 0) return false;
   const lastEvent = events[events.length - 1];
-  return lastEvent.event_type === "start";
+  return lastEvent.event_type === "start" || lastEvent.event_type === "side_change";
 }

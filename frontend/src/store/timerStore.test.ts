@@ -442,6 +442,26 @@ describe("useTimerStore", () => {
       expect(state.twinA.duration).toBeGreaterThanOrEqual(0);
     });
 
+    it("should change side without resetting timer when already running", async () => {
+      const { result } = renderHook(() => useTimerStore());
+
+      await act(async () => {
+        await result.current.startTimer("A", "Left");
+      });
+
+      const initialStartTime = result.current.twinA.startTime;
+
+      await act(async () => {
+        vi.advanceTimersByTime(2000); // Let timer run for 2 seconds
+        await result.current.startTimer("A", "Right"); // Change side
+      });
+
+      const state = result.current;
+      expect(state.twinA.isRunning).toBe(true);
+      expect(state.twinA.side).toBe("Right");
+      expect(state.twinA.startTime).toBe(initialStartTime); // Should not reset
+    });
+
     it("should handle concurrent timer operations", async () => {
       const { result } = renderHook(() => useTimerStore());
 

@@ -1,10 +1,9 @@
 import { useEffect, useState, useCallback } from "react";
 import { feedApi } from "@/services/api";
 import { useTimerStore } from "@/store/timerStore";
-import type { FeedSession } from "@/types";
 
 export function useApiSync() {
-  const { sessions, setSessions, addSession } = useTimerStore();
+  const { sessions, setSessions } = useTimerStore();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,43 +25,6 @@ export function useApiSync() {
   useEffect(() => {
     loadSessions();
   }, [loadSessions]);
-
-  const saveSession = async (
-    session: Omit<FeedSession, "id" | "created_at">,
-  ): Promise<FeedSession | null> => {
-    try {
-      setError(null);
-      // Create session on backend
-      const backendSession = await feedApi.createSession({
-        twin: session.twin,
-      });
-
-      // Add all events to the backend session
-      for (const event of session.events) {
-        await feedApi.addEvent({
-          session_id: backendSession.id!,
-          event_type: event.event_type,
-          timestamp: event.timestamp,
-          side: event.side,
-        });
-      }
-
-      // Reload sessions to get the complete session with events
-      await loadSessions();
-
-      return backendSession;
-    } catch (err) {
-      setError("Failed to save session");
-      console.error("Error saving session:", err);
-      // Add to local store even if API fails
-      const localSession: FeedSession = {
-        ...session,
-        id: Date.now(), // Temporary ID
-      };
-      addSession(localSession);
-      return localSession;
-    }
-  };
 
   const clearAllSessions = async (): Promise<boolean> => {
     try {
@@ -86,7 +48,6 @@ export function useApiSync() {
     sessions,
     isLoading,
     error,
-    saveSession,
     clearAllSessions,
     loadSessions,
     retry,

@@ -102,6 +102,16 @@ func TestFeedEventValidation(t *testing.T) {
 			expectValid: true,
 		},
 		{
+			name: "valid side_change event",
+			feedEvent: FeedEvent{
+				FeedSessionID: 1,
+				EventType:     "side_change",
+				Side:          "Right",
+				Timestamp:     time.Now(),
+			},
+			expectValid: true,
+		},
+		{
 			name: "invalid event type",
 			feedEvent: FeedEvent{
 				FeedSessionID: 1,
@@ -126,7 +136,7 @@ func TestFeedEventValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Test that struct values are set correctly
-			isValid := tt.feedEvent.EventType == "start" || tt.feedEvent.EventType == "pause" || tt.feedEvent.EventType == "end"
+			isValid := tt.feedEvent.EventType == "start" || tt.feedEvent.EventType == "pause" || tt.feedEvent.EventType == "end" || tt.feedEvent.EventType == "side_change"
 			isValid = isValid && tt.feedEvent.FeedSessionID > 0
 			isValid = isValid && (tt.feedEvent.Side == "Left" || tt.feedEvent.Side == "Right")
 			isValid = isValid && !tt.feedEvent.Timestamp.IsZero()

@@ -19,7 +19,7 @@ type CreateFeedSessionRequest struct {
 // AddFeedEventRequest represents the request body for adding an event to a session
 type AddFeedEventRequest struct {
 	SessionID uint      `json:"session_id" binding:"required"`
-	EventType string    `json:"event_type" binding:"required,oneof=start pause end"`
+	EventType string    `json:"event_type" binding:"required,oneof=start pause end side_change"`
 	Timestamp time.Time `json:"timestamp" binding:"required"`
 	Side      string    `json:"side" binding:"required,oneof=Left Right"`
 }

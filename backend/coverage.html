@@ -297,7 +297,7 @@ type CreateFeedSessionRequest struct {
 // AddFeedEventRequest represents the request body for adding an event to a session
 type AddFeedEventRequest struct {
         SessionID uint      `json:"session_id" binding:"required"`
-        EventType string    `json:"event_type" binding:"required,oneof=start pause end"`
+        EventType string    `json:"event_type" binding:"required,oneof=start pause end side_change"`
         Timestamp time.Time `json:"timestamp" binding:"required"`
         Side      string    `json:"side" binding:"required,oneof=Left Right"`
 }
@@ -663,7 +663,7 @@ type FeedSession struct {
 type FeedEvent struct {
         ID            uint      `json:"id" gorm:"primaryKey"`
         FeedSessionID uint      `json:"feed_session_id" gorm:"not null"`
-        EventType     string    `json:"event_type" gorm:"not null" validate:"required,oneof=start pause end"`
+        EventType     string    `json:"event_type" gorm:"not null" validate:"required,oneof=start pause end side_change"`
         Side          string    `json:"side" gorm:"not null" validate:"required,oneof=Left Right"`
         Timestamp     time.Time `json:"timestamp" gorm:"not null" validate:"required"`
         CreatedAt     time.Time `json:"created_at" gorm:"autoCreateTime"`
@@ -717,7 +717,7 @@ func (fs *FeedSession) IsActive() bool <span class="cov6" title="5">{
         }</span>
 
         <span class="cov6" title="4">lastEvent := fs.Events[len(fs.Events)-1]
-        return lastEvent.EventType == "start"</span>
+        return lastEvent.EventType == "start" || lastEvent.EventType == "side_change"</span>
 }
 </pre>
 		

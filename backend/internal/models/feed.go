@@ -15,7 +15,7 @@ type FeedSession struct {
 type FeedEvent struct {
 	ID            uint      `json:"id" gorm:"primaryKey"`
 	FeedSessionID uint      `json:"feed_session_id" gorm:"not null"`
-	EventType     string    `json:"event_type" gorm:"not null" validate:"required,oneof=start pause end"`
+	EventType     string    `json:"event_type" gorm:"not null" validate:"required,oneof=start pause end side_change"`
 	Side          string    `json:"side" gorm:"not null" validate:"required,oneof=Left Right"`
 	Timestamp     time.Time `json:"timestamp" gorm:"not null" validate:"required"`
 	CreatedAt     time.Time `json:"created_at" gorm:"autoCreateTime"`
@@ -69,5 +69,5 @@ func (fs *FeedSession) IsActive() bool {
 	}
 
 	lastEvent := fs.Events[len(fs.Events)-1]
-	return lastEvent.EventType == "start"
+	return lastEvent.EventType == "start" || lastEvent.EventType == "side_change"
 }

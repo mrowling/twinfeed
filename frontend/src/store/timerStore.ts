@@ -75,19 +75,33 @@ export const useTimerStore = create<TimerStore>()(
           sessionId = newSession.id!;
         }
 
-        // Add start event to the session
-        // Add start event to the session
-        await get().addEvent(sessionId, "start", side, new Date(now));
+        // If timer is already running and side is different, just change side without resetting timer
+        if (currentState.isRunning && currentState.side !== side) {
+          // Add side_change event with new side to track the change
+          await get().addEvent(sessionId, "side_change", side, new Date(now));
 
-        set((state: any) => ({
-          [`twin${twin}`]: {
-            ...state[`twin${twin}`],
-            isRunning: true,
-            startTime: now,
-            side,
-            currentSessionId: sessionId,
-          },
-        }));
+          set((state: any) => ({
+            [`twin${twin}`]: {
+              ...state[`twin${twin}`],
+              side,
+            },
+          }));
+        }
+        // If timer is not running, start the timer
+        else if (!currentState.isRunning) {
+          // Add start event to the session
+          await get().addEvent(sessionId, "start", side, new Date(now));
+
+          set((state: any) => ({
+            [`twin${twin}`]: {
+              ...state[`twin${twin}`],
+              isRunning: true,
+              startTime: now,
+              side,
+              currentSessionId: sessionId,
+            },
+          }));
+        }
       },
 
       pauseTimer: async (twin: Twin) => {
