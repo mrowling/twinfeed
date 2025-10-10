@@ -102,6 +102,11 @@ jobs:
 
           # Generate/update index.yaml
           cd gh-pages
+
+          # Configure git for this directory
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+
           helm repo index . --url https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
 
           # Commit and push changes
