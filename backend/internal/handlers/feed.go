@@ -9,6 +9,7 @@ import (
 	"twinfeed-backend/internal/models"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // CreateFeedSessionRequest represents the request body for creating a feed session
@@ -135,7 +136,10 @@ func GetFeeds(c *gin.Context) {
 	}
 
 	// Get feeds with events, ordered by created_at descending
-	if err := db.Preload("Events").
+	// Events within each session are ordered by timestamp ascending
+	if err := db.Preload("Events", func(db *gorm.DB) *gorm.DB {
+		return db.Order("timestamp ASC")
+	}).
 		Order("created_at DESC").
 		Limit(limit).
 		Offset(offset).

@@ -219,6 +219,12 @@ func (suite *FeedHandlerTestSuite) TestGetFeedsWithData() {
 	// Check that feeds have events
 	for _, feed := range response.Feeds {
 		assert.NotEmpty(suite.T(), feed.Events)
+		// Check that events within each session are ordered by timestamp ASC
+		for i := 1; i < len(feed.Events); i++ {
+			assert.True(suite.T(), feed.Events[i-1].Timestamp.Before(feed.Events[i].Timestamp) ||
+				feed.Events[i-1].Timestamp.Equal(feed.Events[i].Timestamp),
+				"Events should be ordered by timestamp ASC")
+		}
 	}
 
 	// Check feeds are ordered by created_at DESC (newest first)

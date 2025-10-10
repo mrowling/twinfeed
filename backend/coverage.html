@@ -59,7 +59,7 @@
 				
 				<option value="file1">twinfeed-backend/internal/database/db.go (83.3%)</option>
 				
-				<option value="file2">twinfeed-backend/internal/handlers/feed.go (67.6%)</option>
+				<option value="file2">twinfeed-backend/internal/handlers/feed.go (68.1%)</option>
 				
 				<option value="file3">twinfeed-backend/internal/handlers/settings.go (71.9%)</option>
 				
@@ -287,6 +287,7 @@ import (
         "twinfeed-backend/internal/models"
 
         "github.com/gin-gonic/gin"
+        "gorm.io/gorm"
 )
 
 // CreateFeedSessionRequest represents the request body for creating a feed session
@@ -413,11 +414,14 @@ func GetFeeds(c *gin.Context) <span class="cov10" title="4">{
         }</span>
 
         // Get feeds with events, ordered by created_at descending
-        <span class="cov10" title="4">if err := db.Preload("Events").
+        // Events within each session are ordered by timestamp ascending
+        <span class="cov10" title="4">if err := db.Preload("Events", func(db *gorm.DB) *gorm.DB </span><span class="cov8" title="3">{
+                return db.Order("timestamp ASC")
+        }</span>).
                 Order("created_at DESC").
                 Limit(limit).
                 Offset(offset).
-                Find(&amp;feeds).Error; err != nil </span><span class="cov0" title="0">{
+                Find(&amp;feeds).Error; err != nil <span class="cov0" title="0">{
                 c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch feed sessions"})
                 return
         }</span>
