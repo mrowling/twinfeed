@@ -1,6 +1,15 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { FeedSession, TimerState, Twin, Side } from "@/types";
+import type {
+  FeedSession,
+  FeedEvent,
+  TimerState,
+  Twin,
+  Side,
+  EventType,
+} from "@/types";
+import { calculateDuration } from "@/types";
+import { feedApi } from "@/services/api";
 
 interface TimerStore {
   // Timer states
@@ -11,15 +20,24 @@ interface TimerStore {
   sessions: FeedSession[];
 
   // Timer actions
-  startTimer: (twin: Twin, side: Side) => void;
-  pauseTimer: (twin: Twin) => void;
-  resetTimer: (twin: Twin) => void;
+  startTimer: (twin: Twin, side: Side) => Promise<void>;
+  pauseTimer: (twin: Twin) => Promise<void>;
+  resetTimer: (twin: Twin) => Promise<void>;
 
   // Session actions
-  saveSession: (twin: Twin) => FeedSession | null;
+  saveSession: (twin: Twin) => Promise<FeedSession | null>;
   addSession: (session: FeedSession) => void;
   setSessions: (sessions: FeedSession[]) => void;
   clearSessions: () => void;
+
+  // New event-based actions
+  createSession: (twin: Twin) => Promise<FeedSession>;
+  addEvent: (
+    sessionId: number,
+    eventType: EventType,
+    side: Side,
+    timestamp?: Date,
+  ) => Promise<void>;
 
   // Utility
   getFormattedTime: (twin: Twin) => string;
@@ -32,6 +50,7 @@ const initialTimerState: TimerState = {
   startTime: 0,
   duration: 0,
   side: null,
+  currentSessionId: undefined,
 };
 
 export const useTimerStore = create<TimerStore>()(
@@ -43,83 +62,182 @@ export const useTimerStore = create<TimerStore>()(
       sessions: [],
 
       // Timer actions
-      startTimer: (twin: Twin, side: Side) => {
+      startTimer: async (twin: Twin, side: Side) => {
         const now = Date.now();
-        set((state) => ({
+        const currentState =
+          get()[`twin${twin}` as keyof Pick<TimerStore, "twinA" | "twinB">];
+
+        let sessionId = currentState.currentSessionId;
+
+        // If no active session, create a new one
+        if (!sessionId) {
+          const newSession = await get().createSession(twin);
+          sessionId = newSession.id!;
+        }
+
+        // Add start event to the session
+        // Add start event to the session
+        await get().addEvent(sessionId, "start", side, new Date(now));
+
+        set((state: any) => ({
           [`twin${twin}`]: {
-            ...state[
-              `twin${twin}` as keyof Pick<TimerStore, "twinA" | "twinB">
-            ],
+            ...state[`twin${twin}`],
             isRunning: true,
             startTime: now,
             side,
+            currentSessionId: sessionId,
           },
         }));
       },
 
-      pauseTimer: (twin: Twin) => {
+      pauseTimer: async (twin: Twin) => {
         const now = Date.now();
-        set((state) => {
-          const currentTimer =
-            state[`twin${twin}` as keyof Pick<TimerStore, "twinA" | "twinB">];
-          const additionalDuration = currentTimer.isRunning
-            ? Math.floor((now - currentTimer.startTime) / 1000)
-            : 0;
+        const currentTimer =
+          get()[`twin${twin}` as keyof Pick<TimerStore, "twinA" | "twinB">];
 
-          return {
+        if (
+          currentTimer.isRunning &&
+          currentTimer.currentSessionId &&
+          currentTimer.side
+        ) {
+          // Add pause event to the current session
+          await get().addEvent(
+            currentTimer.currentSessionId,
+            "pause",
+            currentTimer.side,
+            new Date(now),
+          );
+
+          const additionalDuration = Math.floor(
+            (now - currentTimer.startTime) / 1000,
+          );
+
+          set((state: any) => ({
             [`twin${twin}`]: {
-              ...currentTimer,
+              ...state[`twin${twin}`],
               isRunning: false,
-              duration: currentTimer.duration + additionalDuration,
+              duration: state[`twin${twin}`].duration + additionalDuration,
               startTime: 0,
             },
-          };
-        });
+          }));
+        }
       },
 
-      resetTimer: (twin: Twin) => {
-        set((_state) => ({
+      resetTimer: async (twin: Twin) => {
+        const currentTimer =
+          get()[`twin${twin}` as keyof Pick<TimerStore, "twinA" | "twinB">];
+
+        // If there's an active session, optionally add an end event
+        if (currentTimer.currentSessionId && currentTimer.side) {
+          await get().addEvent(
+            currentTimer.currentSessionId,
+            "end",
+            currentTimer.side,
+          );
+        }
+
+        set(() => ({
           [`twin${twin}`]: { ...initialTimerState },
         }));
       },
 
       // Session actions
-      saveSession: (twin: Twin) => {
-        const state = get();
+      saveSession: async (twin: Twin) => {
         const timer =
-          state[`twin${twin}` as keyof Pick<TimerStore, "twinA" | "twinB">];
+          get()[`twin${twin}` as keyof Pick<TimerStore, "twinA" | "twinB">];
 
-        if (!timer.side || timer.duration === 0) {
+        if (!timer.side || !timer.currentSessionId) {
           return null;
         }
 
-        // Calculate final duration if timer is still running
-        let finalDuration = timer.duration;
-        if (timer.isRunning) {
-          finalDuration += Math.floor((Date.now() - timer.startTime) / 1000);
-        }
+        // Always add end event when saving session to properly close it
+        await get().addEvent(timer.currentSessionId, "end", timer.side);
 
-        // Calculate start time based on duration
-        const startTime = new Date(Date.now() - finalDuration * 1000);
+        // Find and return the saved session
+        const session = get().sessions.find(
+          (s: FeedSession) => s.id === timer.currentSessionId,
+        );
 
-        const session: FeedSession = {
-          twin,
-          side: timer.side,
-          duration: finalDuration,
-          start_time: startTime.toISOString(),
-        };
-
-        // Add to sessions and reset timer
-        set((_state) => ({
-          sessions: [session, ...get().sessions],
+        // Reset timer
+        set(() => ({
           [`twin${twin}`]: { ...initialTimerState },
         }));
 
-        return session;
+        return session || null;
+      },
+
+      createSession: async (twin: Twin) => {
+        try {
+          // Try to create session on backend first
+          const backendSession = await feedApi.createSession({ twin });
+
+          set((state: any) => ({
+            sessions: [backendSession, ...state.sessions],
+          }));
+
+          return backendSession;
+        } catch (error) {
+          console.warn(
+            "Failed to create session on backend, using local storage:",
+            error,
+          );
+
+          // Fallback to local session if backend is unavailable
+          const localSession: FeedSession = {
+            id: Date.now(), // Temporary ID until backend assigns real ID
+            twin,
+            events: [],
+            created_at: new Date().toISOString(),
+          };
+
+          set((state: any) => ({
+            sessions: [localSession, ...state.sessions],
+          }));
+
+          return localSession;
+        }
+      },
+
+      addEvent: async (
+        sessionId: number,
+        eventType: EventType,
+        side: Side,
+        timestamp: Date = new Date(),
+      ) => {
+        const newEvent: FeedEvent = {
+          id: Date.now() + Math.random(), // Temporary ID
+          feed_session_id: sessionId,
+          event_type: eventType,
+          side: side,
+          timestamp: timestamp.toISOString(),
+          created_at: new Date().toISOString(),
+        };
+
+        // Add event locally first for immediate UI update
+        set((state: any) => ({
+          sessions: state.sessions.map((session: FeedSession) =>
+            session.id === sessionId
+              ? { ...session, events: [...session.events, newEvent] }
+              : session,
+          ),
+        }));
+
+        // Try to sync with backend
+        try {
+          await feedApi.addEvent({
+            session_id: sessionId,
+            event_type: eventType,
+            timestamp: timestamp.toISOString(),
+            side: side,
+          });
+        } catch (error) {
+          console.warn("Failed to sync event with backend:", error);
+          // Event remains in local storage, will be synced when possible
+        }
       },
 
       addSession: (session: FeedSession) => {
-        set((state) => ({
+        set((state: any) => ({
           sessions: [session, ...state.sessions],
         }));
       },
@@ -134,54 +252,57 @@ export const useTimerStore = create<TimerStore>()(
 
       // Utility functions
       getFormattedTime: (twin: Twin) => {
-        const state = get();
-        const timer =
-          state[`twin${twin}` as keyof Pick<TimerStore, "twinA" | "twinB">];
+        const currentDuration = get().getCurrentDuration(twin);
 
-        let totalSeconds = timer.duration;
-        if (timer.isRunning) {
-          // Use more precise calculation for real-time updates
-          totalSeconds += Math.floor((Date.now() - timer.startTime) / 1000);
-        }
-
-        const minutes = Math.floor(totalSeconds / 60);
-        const seconds = totalSeconds % 60;
-
+        const minutes = Math.floor(currentDuration / 60);
+        const seconds = currentDuration % 60;
         return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
       },
 
       getCurrentDuration: (twin: Twin) => {
-        const state = get();
         const timer =
-          state[`twin${twin}` as keyof Pick<TimerStore, "twinA" | "twinB">];
+          get()[`twin${twin}` as keyof Pick<TimerStore, "twinA" | "twinB">];
 
-        let totalSeconds = timer.duration;
-        if (timer.isRunning) {
-          totalSeconds += Math.floor((Date.now() - timer.startTime) / 1000);
+        if (timer.currentSessionId) {
+          // Calculate duration from events
+          const session = get().sessions.find(
+            (s: FeedSession) => s.id === timer.currentSessionId,
+          );
+          if (session) {
+            return calculateDuration(session.events);
+          }
         }
 
-        return totalSeconds;
+        // Fallback to timer duration if no session
+        let duration = timer.duration;
+        if (timer.isRunning) {
+          duration += Math.floor((Date.now() - timer.startTime) / 1000);
+        }
+        return duration;
       },
 
       getSuggestedNextSide: (twin: Twin) => {
-        const state = get();
-        // Find the most recent session for this twin
-        const lastSession = state.sessions.find(
-          (session) => session.twin === twin,
+        const sessions = get().sessions;
+        const twinSessions = sessions.filter(
+          (s: FeedSession) => s.twin === twin,
         );
 
-        // If no previous session, no suggestion
-        if (!lastSession) {
-          return null;
+        if (twinSessions.length === 0) {
+          return "Left"; // Default to left for first session
         }
 
-        // Suggest the opposite side from last time
-        return lastSession.side === "Left" ? "Right" : "Left";
+        const lastSession = twinSessions[0]; // Most recent session
+        if (lastSession.events.length === 0) {
+          return "Left"; // Default if no events
+        }
+
+        const lastEvent = lastSession.events[lastSession.events.length - 1];
+        return lastEvent.side === "Left" ? "Right" : "Left";
       },
     }),
     {
       name: "twinfeed-timer-storage",
-      partialize: (state) => ({
+      partialize: (state: any) => ({
         twinA: state.twinA,
         twinB: state.twinB,
         sessions: state.sessions,

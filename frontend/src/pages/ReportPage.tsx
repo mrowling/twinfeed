@@ -6,6 +6,7 @@ import { useApiSync } from "@/hooks/useApiSync";
 import { AlertTriangle, Loader2, Baby } from "lucide-react";
 import { getTwinColorClasses } from "@/lib/twinColors";
 import type { FeedSession } from "@/types";
+import { calculateDuration } from "@/types";
 
 function ReportPage() {
   const { sessions, clearAllSessions, isLoading, error, retry } = useApiSync();
@@ -17,7 +18,11 @@ function ReportPage() {
   // Group sessions by date
   const groupedSessions = sessions.reduce(
     (groups: Record<string, FeedSession[]>, session: FeedSession) => {
-      const date = format(parseISO(session.start_time), "yyyy-MM-dd");
+      // Use the first event's timestamp as the session date
+      const firstEvent = session.events[0];
+      if (!firstEvent) return groups;
+
+      const date = format(parseISO(firstEvent.timestamp), "yyyy-MM-dd");
       if (!groups[date]) {
         groups[date] = [];
       }
@@ -59,7 +64,8 @@ function ReportPage() {
 
   const totalSessions = sessions.length;
   const totalDuration = sessions.reduce(
-    (total: number, session: FeedSession) => total + session.duration,
+    (total: number, session: FeedSession) =>
+      total + calculateDuration(session.events),
     0,
   );
 
@@ -182,14 +188,16 @@ function ReportPage() {
                   </h4>
                   <div className="space-y-2">
                     {groupedSessions[dateString]
-                      .sort(
-                        (a, b) =>
-                          new Date(b.start_time).getTime() -
-                          new Date(a.start_time).getTime(),
-                      )
+                      .sort((a, b) => {
+                        const aTime = a.events[0]?.timestamp || "0";
+                        const bTime = b.events[0]?.timestamp || "0";
+                        return (
+                          new Date(bTime).getTime() - new Date(aTime).getTime()
+                        );
+                      })
                       .map((session, index) => (
                         <div
-                          key={`${session.start_time}-${index}`}
+                          key={`${session.events[0]?.timestamp || "unknown"}-${index}`}
                           className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
                         >
                           <div className="flex items-center space-x-3">
@@ -202,17 +210,21 @@ function ReportPage() {
                               </div>
                               <div className="flex items-center gap-2">
                                 <Badge variant="outline" className="text-xs">
-                                  {session.side}
+                                  {session.events[0]?.side || "Unknown"}
                                 </Badge>
                                 <span className="text-sm text-muted-foreground">
-                                  {formatTime(session.start_time)}
+                                  {session.events[0]
+                                    ? formatTime(session.events[0].timestamp)
+                                    : "Unknown"}
                                 </span>
                               </div>
                             </div>
                           </div>
                           <div className="text-right">
                             <div className="font-medium text-foreground">
-                              {formatDuration(session.duration)}
+                              {formatDuration(
+                                calculateDuration(session.events),
+                              )}
                             </div>
                           </div>
                         </div>

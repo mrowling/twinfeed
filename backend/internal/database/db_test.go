@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 	"twinfeed-backend/internal/models"
 
 	"github.com/stretchr/testify/assert"
@@ -101,17 +102,27 @@ func (suite *DatabaseTestSuite) TestInitializeMigrations() {
 
 	// Verify tables were created
 	assert.True(suite.T(), db.Migrator().HasTable(&models.FeedSession{}))
+	assert.True(suite.T(), db.Migrator().HasTable(&models.FeedEvent{}))
 	assert.True(suite.T(), db.Migrator().HasTable(&models.UserSettings{}))
 
 	// Test creating records to verify schema
 	feedSession := models.FeedSession{
-		Twin:     "A",
-		Side:     "Left",
-		Duration: 300,
+		Twin: "A",
 	}
 	err = db.Create(&feedSession).Error
 	assert.NoError(suite.T(), err)
 	assert.NotZero(suite.T(), feedSession.ID)
+
+	// Test creating a feed event
+	feedEvent := models.FeedEvent{
+		FeedSessionID: feedSession.ID,
+		EventType:     "start",
+		Side:          "Left",
+		Timestamp:     time.Now(),
+	}
+	err = db.Create(&feedEvent).Error
+	assert.NoError(suite.T(), err)
+	assert.NotZero(suite.T(), feedEvent.ID)
 
 	userSettings := models.UserSettings{
 		TwinAName:            "Test Twin A",
@@ -171,44 +182,57 @@ func (suite *DatabaseTestSuite) TestDatabaseOperations() {
 
 	// Test CRUD operations
 	feedSession := models.FeedSession{
-		Twin:     "A",
-		Side:     "Left",
-		Duration: 300,
+		Twin: "A",
 	}
 
-	// Create
+	// Create session
 	err = db.Create(&feedSession).Error
 	assert.NoError(suite.T(), err)
 	assert.NotZero(suite.T(), feedSession.ID)
 
-	// Read
+	// Create events for the session
+	startEvent := models.FeedEvent{
+		FeedSessionID: feedSession.ID,
+		EventType:     "start",
+		Side:          "Left",
+		Timestamp:     time.Now(),
+	}
+	err = db.Create(&startEvent).Error
+	assert.NoError(suite.T(), err)
+	assert.NotZero(suite.T(), startEvent.ID)
+
+	endEvent := models.FeedEvent{
+		FeedSessionID: feedSession.ID,
+		EventType:     "end",
+		Side:          "Left",
+		Timestamp:     time.Now().Add(5 * time.Minute),
+	}
+	err = db.Create(&endEvent).Error
+	assert.NoError(suite.T(), err)
+	assert.NotZero(suite.T(), endEvent.ID)
+
+	// Read session with events
 	var retrievedSession models.FeedSession
-	err = db.First(&retrievedSession, feedSession.ID).Error
+	err = db.Preload("Events").First(&retrievedSession, feedSession.ID).Error
 	assert.NoError(suite.T(), err)
 	assert.Equal(suite.T(), feedSession.Twin, retrievedSession.Twin)
-	assert.Equal(suite.T(), feedSession.Side, retrievedSession.Side)
-	assert.Equal(suite.T(), feedSession.Duration, retrievedSession.Duration)
+	assert.Len(suite.T(), retrievedSession.Events, 2)
 
-	// Update
-	retrievedSession.Duration = 400
-	err = db.Save(&retrievedSession).Error
+	// Delete session (should cascade delete events)
+	err = db.Delete(&retrievedSession).Error
 	assert.NoError(suite.T(), err)
 
-	// Verify update
-	var updatedSession models.FeedSession
-	err = db.First(&updatedSession, feedSession.ID).Error
-	assert.NoError(suite.T(), err)
-	assert.Equal(suite.T(), 400, updatedSession.Duration)
-
-	// Delete
-	err = db.Delete(&updatedSession).Error
-	assert.NoError(suite.T(), err)
-
-	// Verify deletion
+	// Verify session deletion
 	var deletedSession models.FeedSession
 	err = db.First(&deletedSession, feedSession.ID).Error
 	assert.Error(suite.T(), err)
 	assert.Equal(suite.T(), gorm.ErrRecordNotFound, err)
+
+	// Verify events were cascade deleted
+	var remainingEvents []models.FeedEvent
+	err = db.Where("feed_session_id = ?", feedSession.ID).Find(&remainingEvents).Error
+	assert.NoError(suite.T(), err)
+	assert.Len(suite.T(), remainingEvents, 0)
 }
 
 func (suite *DatabaseTestSuite) TestConcurrentAccess() {
@@ -227,9 +251,7 @@ func (suite *DatabaseTestSuite) TestConcurrentAccess() {
 			defer func() { done <- true }()
 
 			feedSession := models.FeedSession{
-				Twin:     "A",
-				Side:     "Left",
-				Duration: 300 + id,
+				Twin: "A",
 			}
 
 			if err := db.Create(&feedSession).Error; err != nil {

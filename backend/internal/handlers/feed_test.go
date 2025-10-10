@@ -31,8 +31,8 @@ func (suite *FeedHandlerTestSuite) SetupSuite() {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	suite.Require().NoError(err)
 
-	// Auto-migrate the schema
-	err = db.AutoMigrate(&models.FeedSession{}, &models.UserSettings{})
+	// Auto-migrate the schema with new models
+	err = db.AutoMigrate(&models.FeedSession{}, &models.FeedEvent{}, &models.UserSettings{})
 	suite.Require().NoError(err)
 
 	suite.db = db
@@ -40,9 +40,10 @@ func (suite *FeedHandlerTestSuite) SetupSuite() {
 	// Set the database instance for handlers
 	database.DB = db
 
-	// Setup router
+	// Setup router with all endpoints
 	suite.router = gin.New()
-	suite.router.POST("/feed", CreateFeed)
+	suite.router.POST("/sessions", CreateFeedSession) // New session endpoint
+	suite.router.POST("/events", AddFeedEvent)        // New event endpoint
 	suite.router.GET("/feeds", GetFeeds)
 	suite.router.DELETE("/feeds", DeleteAllFeeds)
 	suite.router.GET("/health", HealthCheck)
@@ -50,22 +51,20 @@ func (suite *FeedHandlerTestSuite) SetupSuite() {
 
 func (suite *FeedHandlerTestSuite) TearDownTest() {
 	// Clean up database after each test
+	suite.db.Exec("DELETE FROM feed_events")
 	suite.db.Exec("DELETE FROM feed_sessions")
 	suite.db.Exec("DELETE FROM user_settings")
 }
 
-func (suite *FeedHandlerTestSuite) TestCreateFeedSuccess() {
-	feedRequest := CreateFeedRequest{
-		Twin:      "A",
-		Side:      "Left",
-		Duration:  300,
-		StartTime: time.Now().UTC(),
+func (suite *FeedHandlerTestSuite) TestCreateSessionSuccess() {
+	sessionRequest := CreateFeedSessionRequest{
+		Twin: "A",
 	}
 
-	body, err := json.Marshal(feedRequest)
+	body, err := json.Marshal(sessionRequest)
 	suite.Require().NoError(err)
 
-	req := httptest.NewRequest("POST", "/feed", bytes.NewBuffer(body))
+	req := httptest.NewRequest("POST", "/sessions", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
@@ -77,24 +76,56 @@ func (suite *FeedHandlerTestSuite) TestCreateFeedSuccess() {
 	err = json.Unmarshal(w.Body.Bytes(), &response)
 	suite.Require().NoError(err)
 
-	assert.Equal(suite.T(), feedRequest.Twin, response.Twin)
-	assert.Equal(suite.T(), feedRequest.Side, response.Side)
-	assert.Equal(suite.T(), feedRequest.Duration, response.Duration)
+	assert.Equal(suite.T(), sessionRequest.Twin, response.Twin)
+	assert.Empty(suite.T(), response.Events) // New session should have no events
 	assert.NotZero(suite.T(), response.ID)
 }
 
-func (suite *FeedHandlerTestSuite) TestCreateFeedInvalidTwin() {
-	feedRequest := CreateFeedRequest{
-		Twin:      "C", // Invalid twin
+func (suite *FeedHandlerTestSuite) TestAddEventSuccess() {
+	// First create a session
+	session := models.FeedSession{
+		Twin: "A",
+	}
+	err := suite.db.Create(&session).Error
+	suite.Require().NoError(err)
+
+	// Now add an event
+	eventRequest := AddFeedEventRequest{
+		SessionID: session.ID,
+		EventType: "start",
+		Timestamp: time.Now().UTC(),
 		Side:      "Left",
-		Duration:  300,
-		StartTime: time.Now().UTC(),
 	}
 
-	body, err := json.Marshal(feedRequest)
+	body, err := json.Marshal(eventRequest)
 	suite.Require().NoError(err)
 
-	req := httptest.NewRequest("POST", "/feed", bytes.NewBuffer(body))
+	req := httptest.NewRequest("POST", "/events", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	suite.router.ServeHTTP(w, req)
+
+	assert.Equal(suite.T(), http.StatusCreated, w.Code)
+
+	var response models.FeedEvent
+	err = json.Unmarshal(w.Body.Bytes(), &response)
+	suite.Require().NoError(err)
+
+	assert.Equal(suite.T(), eventRequest.SessionID, response.FeedSessionID)
+	assert.Equal(suite.T(), eventRequest.EventType, response.EventType)
+	assert.NotZero(suite.T(), response.ID)
+}
+
+func (suite *FeedHandlerTestSuite) TestCreateSessionInvalidTwin() {
+	sessionRequest := CreateFeedSessionRequest{
+		Twin: "C", // Invalid twin
+	}
+
+	body, err := json.Marshal(sessionRequest)
+	suite.Require().NoError(err)
+
+	req := httptest.NewRequest("POST", "/sessions", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
@@ -103,63 +134,24 @@ func (suite *FeedHandlerTestSuite) TestCreateFeedInvalidTwin() {
 	assert.Equal(suite.T(), http.StatusBadRequest, w.Code)
 }
 
-func (suite *FeedHandlerTestSuite) TestCreateFeedInvalidSide() {
-	feedRequest := CreateFeedRequest{
-		Twin:      "A",
-		Side:      "Middle", // Invalid side
-		Duration:  300,
-		StartTime: time.Now().UTC(),
-	}
-
-	body, err := json.Marshal(feedRequest)
-	suite.Require().NoError(err)
-
-	req := httptest.NewRequest("POST", "/feed", bytes.NewBuffer(body))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	suite.router.ServeHTTP(w, req)
-
-	assert.Equal(suite.T(), http.StatusBadRequest, w.Code)
-}
-
-func (suite *FeedHandlerTestSuite) TestCreateFeedInvalidDuration() {
-	feedRequest := CreateFeedRequest{
-		Twin:      "A",
+func (suite *FeedHandlerTestSuite) TestAddEventInvalidSessionID() {
+	eventRequest := AddFeedEventRequest{
+		SessionID: 999, // Non-existent session
+		EventType: "start",
+		Timestamp: time.Now().UTC(),
 		Side:      "Left",
-		Duration:  0, // Invalid duration
-		StartTime: time.Now().UTC(),
 	}
 
-	body, err := json.Marshal(feedRequest)
+	body, err := json.Marshal(eventRequest)
 	suite.Require().NoError(err)
 
-	req := httptest.NewRequest("POST", "/feed", bytes.NewBuffer(body))
+	req := httptest.NewRequest("POST", "/events", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
 	suite.router.ServeHTTP(w, req)
 
-	assert.Equal(suite.T(), http.StatusBadRequest, w.Code)
-}
-
-func (suite *FeedHandlerTestSuite) TestCreateFeedMissingFields() {
-	// Test with missing required fields
-	invalidRequest := map[string]interface{}{
-		"twin": "A",
-		// Missing side, duration, start_time
-	}
-
-	body, err := json.Marshal(invalidRequest)
-	suite.Require().NoError(err)
-
-	req := httptest.NewRequest("POST", "/feed", bytes.NewBuffer(body))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	suite.router.ServeHTTP(w, req)
-
-	assert.Equal(suite.T(), http.StatusBadRequest, w.Code)
+	assert.Equal(suite.T(), http.StatusNotFound, w.Code)
 }
 
 func (suite *FeedHandlerTestSuite) TestGetFeedsEmpty() {
@@ -179,30 +171,35 @@ func (suite *FeedHandlerTestSuite) TestGetFeedsEmpty() {
 }
 
 func (suite *FeedHandlerTestSuite) TestGetFeedsWithData() {
-	// Create test feeds
-	feeds := []models.FeedSession{
-		{
-			Twin:      "A",
-			Side:      "Left",
-			Duration:  300,
-			StartTime: time.Now().UTC().Add(-2 * time.Hour),
-		},
-		{
-			Twin:      "B",
-			Side:      "Right",
-			Duration:  250,
-			StartTime: time.Now().UTC().Add(-1 * time.Hour),
-		},
-		{
-			Twin:      "A",
-			Side:      "Right",
-			Duration:  400,
-			StartTime: time.Now().UTC(),
-		},
+	// Create test sessions with events
+	now := time.Now().UTC()
+
+	session1 := models.FeedSession{
+		Twin: "A",
+	}
+	suite.db.Create(&session1)
+
+	// Add events to session1
+	events1 := []models.FeedEvent{
+		{FeedSessionID: session1.ID, EventType: "start", Timestamp: now.Add(-2 * time.Hour)},
+		{FeedSessionID: session1.ID, EventType: "end", Timestamp: now.Add(-2*time.Hour + 5*time.Minute)},
+	}
+	for _, event := range events1 {
+		suite.db.Create(&event)
 	}
 
-	for _, feed := range feeds {
-		suite.db.Create(&feed)
+	session2 := models.FeedSession{
+		Twin: "B",
+	}
+	suite.db.Create(&session2)
+
+	// Add events to session2
+	events2 := []models.FeedEvent{
+		{FeedSessionID: session2.ID, EventType: "start", Timestamp: now.Add(-1 * time.Hour)},
+		{FeedSessionID: session2.ID, EventType: "pause", Timestamp: now.Add(-1*time.Hour + 4*time.Minute)},
+	}
+	for _, event := range events2 {
+		suite.db.Create(&event)
 	}
 
 	req := httptest.NewRequest("GET", "/feeds", nil)
@@ -216,24 +213,35 @@ func (suite *FeedHandlerTestSuite) TestGetFeedsWithData() {
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	suite.Require().NoError(err)
 
-	assert.Equal(suite.T(), int64(3), response.Total)
-	assert.Len(suite.T(), response.Feeds, 3)
+	assert.Equal(suite.T(), int64(2), response.Total)
+	assert.Len(suite.T(), response.Feeds, 2)
 
-	// Check that feeds are ordered by start_time DESC (newest first)
-	assert.True(suite.T(), response.Feeds[0].StartTime.After(response.Feeds[1].StartTime))
-	assert.True(suite.T(), response.Feeds[1].StartTime.After(response.Feeds[2].StartTime))
+	// Check that feeds have events
+	for _, feed := range response.Feeds {
+		assert.NotEmpty(suite.T(), feed.Events)
+	}
+
+	// Check feeds are ordered by created_at DESC (newest first)
+	assert.True(suite.T(), response.Feeds[0].CreatedAt.After(response.Feeds[1].CreatedAt) ||
+		response.Feeds[0].CreatedAt.Equal(response.Feeds[1].CreatedAt))
 }
 
 func (suite *FeedHandlerTestSuite) TestGetFeedsPagination() {
-	// Create multiple test feeds
+	// Create multiple test sessions
 	for i := 0; i < 5; i++ {
-		feed := models.FeedSession{
-			Twin:      "A",
-			Side:      "Left",
-			Duration:  300 + i,
-			StartTime: time.Now().UTC().Add(-time.Duration(i) * time.Hour),
+		session := models.FeedSession{
+			Twin: "A",
 		}
-		suite.db.Create(&feed)
+		suite.db.Create(&session)
+
+		// Add a start event to each session
+		event := models.FeedEvent{
+			FeedSessionID: session.ID,
+			EventType:     "start",
+			Side:          "Left",
+			Timestamp:     time.Now().UTC().Add(-time.Duration(i) * time.Hour),
+		}
+		suite.db.Create(&event)
 	}
 
 	// Test with limit
@@ -283,15 +291,21 @@ func (suite *FeedHandlerTestSuite) TestDeleteAllFeedsEmpty() {
 }
 
 func (suite *FeedHandlerTestSuite) TestDeleteAllFeedsWithData() {
-	// Create test feeds
+	// Create test sessions
 	for i := 0; i < 3; i++ {
-		feed := models.FeedSession{
-			Twin:      "A",
-			Side:      "Left",
-			Duration:  300,
-			StartTime: time.Now().UTC(),
+		session := models.FeedSession{
+			Twin: "A",
 		}
-		suite.db.Create(&feed)
+		suite.db.Create(&session)
+
+		// Add an event to each session
+		event := models.FeedEvent{
+			FeedSessionID: session.ID,
+			EventType:     "start",
+			Side:          "Left",
+			Timestamp:     time.Now().UTC(),
+		}
+		suite.db.Create(&event)
 	}
 
 	req := httptest.NewRequest("DELETE", "/feeds", nil)

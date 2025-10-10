@@ -48,7 +48,9 @@ func main() {
 		// Health check endpoint
 		v1.GET("/health", handlers.HealthCheck)
 
-		v1.POST("/feed", handlers.CreateFeed)
+		// Feed routes
+		v1.POST("/sessions", handlers.CreateFeedSession) // New endpoint for creating sessions
+		v1.POST("/events", handlers.AddFeedEvent)        // New endpoint for adding events
 		v1.GET("/feeds", handlers.GetFeeds)
 		v1.DELETE("/feeds", handlers.DeleteAllFeeds)
 

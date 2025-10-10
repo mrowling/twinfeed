@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { feedApi } from "@/services/api";
 import { useTimerStore } from "@/store/timerStore";
 import type { FeedSession } from "@/types";
@@ -8,12 +8,7 @@ export function useApiSync() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Load sessions from backend on mount
-  useEffect(() => {
-    loadSessions();
-  }, []);
-
-  const loadSessions = async () => {
+  const loadSessions = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
@@ -25,16 +20,37 @@ export function useApiSync() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [setSessions]);
+
+  // Load sessions from backend on mount
+  useEffect(() => {
+    loadSessions();
+  }, [loadSessions]);
 
   const saveSession = async (
     session: Omit<FeedSession, "id" | "created_at">,
   ): Promise<FeedSession | null> => {
     try {
       setError(null);
-      const savedSession = await feedApi.createFeed(session);
-      addSession(savedSession);
-      return savedSession;
+      // Create session on backend
+      const backendSession = await feedApi.createSession({
+        twin: session.twin,
+      });
+
+      // Add all events to the backend session
+      for (const event of session.events) {
+        await feedApi.addEvent({
+          session_id: backendSession.id!,
+          event_type: event.event_type,
+          timestamp: event.timestamp,
+          side: event.side,
+        });
+      }
+
+      // Reload sessions to get the complete session with events
+      await loadSessions();
+
+      return backendSession;
     } catch (err) {
       setError("Failed to save session");
       console.error("Error saving session:", err);

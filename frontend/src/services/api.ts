@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { FeedSession } from "@/types";
+import type { FeedSession, FeedEvent } from "@/types";
 import { getApiBaseUrl } from "@/utils/apiUrl";
 
 const API_BASE_URL = getApiBaseUrl();
@@ -22,12 +22,29 @@ export interface DeleteResponse {
   deleted_count: number;
 }
 
+export interface CreateSessionRequest {
+  twin: "A" | "B";
+}
+
+export interface AddEventRequest {
+  session_id: number;
+  event_type: "start" | "pause" | "end";
+  timestamp: string;
+  side: "Left" | "Right";
+}
+
 export const feedApi = {
   // Create a new feeding session
-  createFeed: async (
-    session: Omit<FeedSession, "id" | "created_at">,
+  createSession: async (
+    request: CreateSessionRequest,
   ): Promise<FeedSession> => {
-    const response = await api.post<FeedSession>("/feed", session);
+    const response = await api.post<FeedSession>("/sessions", request);
+    return response.data;
+  },
+
+  // Add an event to an existing session
+  addEvent: async (request: AddEventRequest): Promise<FeedEvent> => {
+    const response = await api.post<FeedEvent>("/events", request);
     return response.data;
   },
 
