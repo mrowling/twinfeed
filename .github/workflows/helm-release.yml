@@ -81,6 +81,7 @@ jobs:
           sed -i "s/^appVersion:.*/appVersion: \"${VERSION}\"/" helm/twinfeed/Chart.yaml
 
           echo "Updated chart to version: ${VERSION}"
+          echo "CHART_VERSION=${VERSION}" >> $GITHUB_ENV
 
       - name: Package Helm chart
         run: |
@@ -114,7 +115,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ github.event.release.upload_url }}
-          asset_path: helm/twinfeed-${{ github.event.release.tag_name }}.tgz
+          asset_path: helm/twinfeed-${{ env.CHART_VERSION }}.tgz
           asset_name: twinfeed-${{ github.event.release.tag_name }}.tgz
           asset_content_type: application/gzip
 
