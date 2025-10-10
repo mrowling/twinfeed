@@ -305,12 +305,20 @@ export const useTimerStore = create<TimerStore>()(
           return "Left"; // Default to left for first session
         }
 
-        const lastSession = twinSessions[0]; // Most recent session
-        if (lastSession.events.length === 0) {
-          return "Left"; // Default if no events
+        // Find the last completed session (one that ends with an "end" event)
+        const completedSessions = twinSessions.filter((session: FeedSession) => {
+          if (session.events.length === 0) return false;
+          const lastEvent = session.events[session.events.length - 1];
+          return lastEvent.event_type === "end";
+        });
+
+        if (completedSessions.length === 0) {
+          return "Left"; // No completed sessions yet, default to left
         }
 
-        const lastEvent = lastSession.events[lastSession.events.length - 1];
+        // Use the last completed session
+        const lastCompletedSession = completedSessions[0];
+        const lastEvent = lastCompletedSession.events[lastCompletedSession.events.length - 1];
         return lastEvent.side === "Left" ? "Right" : "Left";
       },
     }),

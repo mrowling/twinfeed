@@ -271,8 +271,8 @@ function ReportPage() {
                                               event.event_type === "start"
                                                 ? "default"
                                                 : event.event_type === "end"
-                                                ? "secondary"
-                                                : "outline"
+                                                  ? "secondary"
+                                                  : "outline"
                                             }
                                             className="text-xs"
                                           >

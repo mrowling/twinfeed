@@ -417,7 +417,7 @@ describe("useTimerStore", () => {
       expect(result.current.getSuggestedNextSide("B")).toBe("Left");
     });
 
-    it("should return null when no previous sessions exist", () => {
+    it("should return Left when no previous sessions exist", () => {
       const { result } = renderHook(() => useTimerStore());
 
       expect(result.current.getSuggestedNextSide("A")).toBe("Left");
