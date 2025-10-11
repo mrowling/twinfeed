@@ -42,6 +42,9 @@ func main() {
 	router.Use(gin.Logger())
 	router.Use(gin.Recovery())
 
+	// Root level health check for Kubernetes
+	router.GET("/health", handlers.HealthCheck)
+
 	// API routes
 	v1 := router.Group("/api/v1")
 	{
