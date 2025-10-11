@@ -318,8 +318,38 @@ export const useTimerStore = create<TimerStore>()(
 
         // Use the last completed session
         const lastCompletedSession = completedSessions[0];
-        const lastEvent = lastCompletedSession.events[lastCompletedSession.events.length - 1];
-        return lastEvent.side === "Left" ? "Right" : "Left";
+        // Calculate total duration per side in the last completed session
+        const sideDurations: Record<Side, number> = { Left: 0, Right: 0 };
+
+        let lastSide: Side | null = null;
+        let lastStart: number | null = null;
+
+        for (const event of lastCompletedSession.events) {
+          if (event.event_type === "start" || event.event_type === "side_change") {
+            // Start timing for this side
+            lastSide = event.side;
+            lastStart = new Date(event.timestamp).getTime();
+          } else if (
+            (event.event_type === "pause" || event.event_type === "end") &&
+            lastSide &&
+            lastStart !== null
+          ) {
+            // Stop timing for this side
+            const endTime = new Date(event.timestamp).getTime();
+            sideDurations[lastSide] += Math.max(0, Math.floor((endTime - lastStart) / 1000));
+            lastStart = null;
+          }
+        }
+
+        // Suggest the side with less total duration
+        if (sideDurations.Left < sideDurations.Right) {
+          return "Left";
+        } else if (sideDurations.Right < sideDurations.Left) {
+          return "Right";
+        } else {
+          // If equal, default to Left
+          return "Left";
+        }
       },
     }),
     {
