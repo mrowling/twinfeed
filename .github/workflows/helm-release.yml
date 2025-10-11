@@ -70,7 +70,7 @@ jobs:
           git config user.name "$GITHUB_ACTOR"
           git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
 
-      - name: Update Chart version
+      - name: Update versions in chart
         run: |
           # Extract version from release tag (remove 'v' prefix if present)
           VERSION=${GITHUB_REF#refs/tags/}
@@ -79,6 +79,11 @@ jobs:
           # Update Chart.yaml with release version
           sed -i "s/^version:.*/version: ${VERSION}/" helm/twinfeed/Chart.yaml
           sed -i "s/^appVersion:.*/appVersion: \"${VERSION}\"/" helm/twinfeed/Chart.yaml
+
+          # Update image tags in values.yaml to match release version
+          sed -i "s/tag: \"[^\"]*\"/tag: \"${VERSION}\"/g" helm/twinfeed/values.yaml
+
+          echo "Updated image tags to version: ${VERSION}"
 
           echo "Updated chart to version: ${VERSION}"
           echo "CHART_VERSION=${VERSION}" >> $GITHUB_ENV
