@@ -101,7 +101,7 @@ frontend/src/
 
 ### Environment Variables
 - **Backend**: `DB_PATH` (default: `./data/twinfeed.db`), `PORT` (8080), `GIN_MODE`
-- **Frontend**: `VITE_API_URL` (default: `http://localhost:8080/api/v1`)
+- **Frontend**: `VITE_APP_VERSION` (set during Docker build for version display)
 
 ### Common Commands
 ```bash

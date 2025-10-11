@@ -41,8 +41,8 @@ spec:
               containerPort: {{ .Values.frontend.service.targetPort }}
               protocol: TCP
           env:
-            - name: VITE_API_URL
-              value: {{ include "twinfeed.backend.apiUrl" . | quote }}
+            - name: VITE_APP_VERSION
+              value: "{{ include "twinfeed.frontend.imageTag" . }}"
           livenessProbe:
             httpGet:
               path: /

@@ -87,7 +87,6 @@ The following table lists the configurable parameters of the TwinFeed chart and 
 | `frontend.service.type` | Frontend service type | `ClusterIP` |
 | `frontend.service.port` | Frontend service port | `80` |
 | `frontend.service.targetPort` | Frontend container port | `80` |
-| `frontend.env.VITE_API_URL` | Backend API URL (auto-configured if empty) | `""` |
 | `frontend.resources` | Frontend resource limits and requests | `{}` |
 
 ### Ingress Parameters

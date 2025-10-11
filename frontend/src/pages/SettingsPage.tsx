@@ -612,7 +612,7 @@ function SettingsPage() {
             <div className="flex justify-between items-center">
               <span className="text-muted-foreground">Version:</span>
               <Badge variant="outline" className="font-mono">
-                1.0.0
+                {import.meta.env.VITE_APP_VERSION || "0.0.0"}
               </Badge>
             </div>
             <div className="flex justify-between items-center">

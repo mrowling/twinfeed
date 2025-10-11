@@ -1,6 +1,9 @@
 # Build stage
 FROM node:18-alpine AS builder
 
+# Accept build arguments
+ARG VITE_APP_VERSION=1.0.0
+
 # Install pnpm
 RUN npm install -g pnpm
 
@@ -14,6 +17,9 @@ RUN pnpm install --frozen-lockfile
 
 # Copy source code
 COPY . .
+
+# Set build-time environment variable
+ENV VITE_APP_VERSION=$VITE_APP_VERSION
 
 # Build the application
 RUN pnpm run build

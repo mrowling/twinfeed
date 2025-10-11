@@ -97,21 +97,3 @@ Image pull policy
 {{- define "twinfeed.imagePullPolicy" -}}
 {{- .Values.global.imagePullPolicy | default .Values.image.backend.pullPolicy }}
 {{- end }}
-
-{{/*
-Backend API URL for frontend
-*/}}
-{{- define "twinfeed.backend.apiUrl" -}}
-{{- if .Values.frontend.env.VITE_API_URL }}
-{{- .Values.frontend.env.VITE_API_URL }}
-{{- else if .Values.ingress.enabled }}
-{{- $scheme := "http" }}
-{{- if .Values.ingress.tls }}
-{{- $scheme = "https" }}
-{{- end }}
-{{- $host := (index .Values.ingress.hosts 0).host }}
-{{- printf "%s://%s/api/v1" $scheme $host }}
-{{- else }}
-{{- printf "http://%s-backend:%d/api/v1" (include "twinfeed.fullname" .) (.Values.backend.service.port | int) }}
-{{- end }}
-{{- end }}

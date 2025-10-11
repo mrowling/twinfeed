@@ -132,6 +132,9 @@ func main() <span class="cov0" title="0">{
         router.Use(gin.Logger())
         router.Use(gin.Recovery())
 
+        // Root level health check for Kubernetes
+        router.GET("/health", handlers.HealthCheck)
+
         // API routes
         v1 := router.Group("/api/v1")
         </span><span class="cov0" title="0">{

@@ -297,7 +297,7 @@ CREATE TABLE feed_sessions (
 - `GIN_MODE`: Gin mode (`debug` or `release`)
 
 ### Frontend
-- `VITE_API_URL`: Backend API base URL (default: `http://localhost:8080/api/v1`)
+The frontend automatically detects the API URL based on the current domain.
 
 ## Design System
 
