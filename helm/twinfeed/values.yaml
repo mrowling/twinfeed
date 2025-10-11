@@ -95,7 +95,7 @@ ingress:
         - path: /
           pathType: Prefix
           service: frontend
-        - path: /api
+        - path: /api/v1
           pathType: Prefix
           service: backend
         - path: /health
