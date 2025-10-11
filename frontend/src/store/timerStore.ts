@@ -306,11 +306,13 @@ export const useTimerStore = create<TimerStore>()(
         }
 
         // Find the last completed session (one that ends with an "end" event)
-        const completedSessions = twinSessions.filter((session: FeedSession) => {
-          if (session.events.length === 0) return false;
-          const lastEvent = session.events[session.events.length - 1];
-          return lastEvent.event_type === "end";
-        });
+        const completedSessions = twinSessions.filter(
+          (session: FeedSession) => {
+            if (session.events.length === 0) return false;
+            const lastEvent = session.events[session.events.length - 1];
+            return lastEvent.event_type === "end";
+          },
+        );
 
         if (completedSessions.length === 0) {
           return "Left"; // No completed sessions yet, default to left
@@ -325,7 +327,10 @@ export const useTimerStore = create<TimerStore>()(
         let lastStart: number | null = null;
 
         for (const event of lastCompletedSession.events) {
-          if (event.event_type === "start" || event.event_type === "side_change") {
+          if (
+            event.event_type === "start" ||
+            event.event_type === "side_change"
+          ) {
             // Start timing for this side
             lastSide = event.side;
             lastStart = new Date(event.timestamp).getTime();
@@ -336,7 +341,10 @@ export const useTimerStore = create<TimerStore>()(
           ) {
             // Stop timing for this side
             const endTime = new Date(event.timestamp).getTime();
-            sideDurations[lastSide] += Math.max(0, Math.floor((endTime - lastStart) / 1000));
+            sideDurations[lastSide] += Math.max(
+              0,
+              Math.floor((endTime - lastStart) / 1000),
+            );
             lastStart = null;
           }
         }

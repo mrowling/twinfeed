@@ -83,5 +83,7 @@ export function calculateDuration(events: FeedEvent[]): number {
 export function isSessionActive(events: FeedEvent[]): boolean {
   if (events.length === 0) return false;
   const lastEvent = events[events.length - 1];
-  return lastEvent.event_type === "start" || lastEvent.event_type === "side_change";
+  return (
+    lastEvent.event_type === "start" || lastEvent.event_type === "side_change"
+  );
 }

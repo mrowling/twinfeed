@@ -16,7 +16,7 @@ function TrackerPage() {
     getSuggestedNextSide,
   } = useTimerStore();
 
-  const { saveSession: saveToApi, error, retry } = useApiSync();
+  const { error, retry } = useApiSync();
 
   const handleStartTimer = async (twin: "A" | "B", side: "Left" | "Right") => {
     await startTimer(twin, side);
@@ -31,14 +31,7 @@ function TrackerPage() {
   };
 
   const handleSaveSession = async (twin: "A" | "B") => {
-    const localSession = await saveLocalSession(twin);
-    if (localSession) {
-      // Try to sync with backend
-      await saveToApi({
-        twin: localSession.twin,
-        events: localSession.events,
-      });
-    }
+    await saveLocalSession(twin);
   };
 
   return (

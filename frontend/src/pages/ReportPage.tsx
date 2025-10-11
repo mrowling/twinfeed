@@ -3,7 +3,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useApiSync } from "@/hooks/useApiSync";
-import { AlertTriangle, Loader2, Baby, ChevronDown, ChevronRight } from "lucide-react";
+import {
+  AlertTriangle,
+  Loader2,
+  Baby,
+  ChevronDown,
+  ChevronRight,
+} from "lucide-react";
 import { getTwinColorClasses } from "@/lib/twinColors";
 import type { FeedSession } from "@/types";
 import { calculateDuration } from "@/types";
@@ -11,14 +17,16 @@ import { useState } from "react";
 
 function ReportPage() {
   const { sessions, clearAllSessions, isLoading, error, retry } = useApiSync();
-  const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set());
+  const [expandedSessions, setExpandedSessions] = useState<Set<string>>(
+    new Set(),
+  );
 
   // Get custom twin names from localStorage
   const twinAName = localStorage.getItem("twinAName") || "Twin A";
   const twinBName = localStorage.getItem("twinBName") || "Twin B";
 
   const toggleSessionExpansion = (sessionId: string) => {
-    setExpandedSessions(prev => {
+    setExpandedSessions((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(sessionId)) {
         newSet.delete(sessionId);
@@ -213,7 +221,10 @@ function ReportPage() {
                         const sessionId = `${session.events[0]?.timestamp || "unknown"}-${index}`;
                         const isExpanded = expandedSessions.has(sessionId);
                         return (
-                          <div key={sessionId} className="border rounded-lg overflow-hidden">
+                          <div
+                            key={sessionId}
+                            className="border rounded-lg overflow-hidden"
+                          >
                             <div
                               className="flex items-center justify-between p-3 bg-muted/50 cursor-pointer hover:bg-muted/70 transition-colors"
                               onClick={() => toggleSessionExpansion(sessionId)}
@@ -224,15 +235,22 @@ function ReportPage() {
                                 />
                                 <div>
                                   <div className="font-medium text-foreground">
-                                    {session.twin === "A" ? twinAName : twinBName}
+                                    {session.twin === "A"
+                                      ? twinAName
+                                      : twinBName}
                                   </div>
                                   <div className="flex items-center gap-2">
-                                    <Badge variant="outline" className="text-xs">
+                                    <Badge
+                                      variant="outline"
+                                      className="text-xs"
+                                    >
                                       {session.events[0]?.side || "Unknown"}
                                     </Badge>
                                     <span className="text-sm text-muted-foreground">
                                       {session.events[0]
-                                        ? formatTime(session.events[0].timestamp)
+                                        ? formatTime(
+                                            session.events[0].timestamp,
+                                          )
                                         : "Unknown"}
                                     </span>
                                   </div>

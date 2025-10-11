@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
 import { useTimerStore } from "../store/timerStore";
 import type { FeedSession } from "../types";
+import { feedApi } from "../services/api";
 
 // Mock feedApi
 vi.mock("../services/api", () => ({
@@ -506,6 +507,268 @@ describe("useTimerStore", () => {
 
       expect(result.current.sessions).toHaveLength(1);
       expect(result.current.twinA.duration).toBe(0);
+    });
+  });
+
+  describe("Event-Based Actions", () => {
+    it("should create a new session", async () => {
+      const { result } = renderHook(() => useTimerStore());
+
+      const session = await act(async () => {
+        return await result.current.createSession("A");
+      });
+
+      expect(session).toBeDefined();
+      expect(session.twin).toBe("A");
+      expect(session.events).toEqual([]);
+      expect(session.id).toBeDefined();
+    });
+
+    it("should add an event to a session", async () => {
+      const { result } = renderHook(() => useTimerStore());
+
+      const session = await act(async () => {
+        return await result.current.createSession("A");
+      });
+
+      const eventTimestamp = new Date();
+      await act(async () => {
+        await result.current.addEvent(
+          session.id!,
+          "start",
+          "Left",
+          eventTimestamp,
+        );
+      });
+
+      // Verify the API was called correctly
+      expect(vi.mocked(feedApi.addEvent)).toHaveBeenCalledWith({
+        session_id: session.id,
+        event_type: "start",
+        side: "Left",
+        timestamp: eventTimestamp.toISOString(),
+      });
+    });
+
+    it("should handle side change events during active timer", async () => {
+      const { result } = renderHook(() => useTimerStore());
+
+      // Start timer
+      await act(async () => {
+        await result.current.startTimer("A", "Left");
+      });
+
+      // Change side (should add side_change event)
+      await act(async () => {
+        await result.current.startTimer("A", "Right");
+      });
+
+      const state = result.current;
+      expect(state.twinA.side).toBe("Right");
+      expect(state.twinA.isRunning).toBe(true);
+
+      // Verify side_change event was added
+      expect(vi.mocked(feedApi.addEvent)).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event_type: "side_change",
+          side: "Right",
+        }),
+      );
+    });
+
+    it("should add pause and resume events correctly", async () => {
+      const { result } = renderHook(() => useTimerStore());
+
+      // Start timer
+      await act(async () => {
+        await result.current.startTimer("A", "Left");
+      });
+
+      // Pause timer
+      await act(async () => {
+        await result.current.pauseTimer("A");
+      });
+
+      // Resume timer
+      await act(async () => {
+        await result.current.startTimer("A", "Left");
+      });
+
+      // Verify pause and start events were added
+      expect(vi.mocked(feedApi.addEvent)).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event_type: "pause",
+          side: "Left",
+        }),
+      );
+
+      expect(vi.mocked(feedApi.addEvent)).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event_type: "start",
+          side: "Left",
+        }),
+      );
+    });
+
+    it("should save session with complete event sequence", async () => {
+      const { result } = renderHook(() => useTimerStore());
+
+      // Start and run timer
+      await act(async () => {
+        await result.current.startTimer("A", "Left");
+        vi.advanceTimersByTime(5000);
+        await result.current.pauseTimer("A");
+      });
+
+      // Save session
+      const savedSession = await act(async () => {
+        return await result.current.saveSession("A");
+      });
+
+      expect(savedSession).toBeDefined();
+      expect(savedSession!.events).toHaveLength(3); // start, pause, end
+      expect(savedSession!.events[0].event_type).toBe("start");
+      expect(savedSession!.events[1].event_type).toBe("pause");
+      expect(savedSession!.events[2].event_type).toBe("end");
+    });
+  });
+
+  describe("Side Recommendation Logic", () => {
+    it("should only consider completed sessions for side recommendations", () => {
+      const { result } = renderHook(() => useTimerStore());
+
+      const sessions: FeedSession[] = [
+        // Completed session (ends with "end")
+        {
+          twin: "A",
+          events: [
+            {
+              feed_session_id: 1,
+              event_type: "start",
+              side: "Left",
+              timestamp: new Date(Date.now() - 1000000).toISOString(),
+            },
+            {
+              feed_session_id: 1,
+              event_type: "end",
+              side: "Left",
+              timestamp: new Date(Date.now() - 700000).toISOString(),
+            },
+          ],
+        },
+        // Active session (ends with "pause" - should be ignored)
+        {
+          twin: "A",
+          events: [
+            {
+              feed_session_id: 2,
+              event_type: "start",
+              side: "Right",
+              timestamp: new Date(Date.now() - 300000).toISOString(),
+            },
+            {
+              feed_session_id: 2,
+              event_type: "pause",
+              side: "Right",
+              timestamp: new Date(Date.now() - 100000).toISOString(),
+            },
+          ],
+        },
+      ];
+
+      act(() => {
+        result.current.setSessions(sessions);
+      });
+
+      // Should suggest opposite of last completed session (Left), not the paused one (Right)
+      expect(result.current.getSuggestedNextSide("A")).toBe("Right");
+    });
+
+    it("should handle sessions with pause/resume cycles", () => {
+      const { result } = renderHook(() => useTimerStore());
+
+      const sessions: FeedSession[] = [
+        {
+          twin: "A",
+          events: [
+            {
+              feed_session_id: 1,
+              event_type: "start",
+              side: "Left",
+              timestamp: new Date(Date.now() - 1000000).toISOString(),
+            },
+            {
+              feed_session_id: 1,
+              event_type: "pause",
+              side: "Left",
+              timestamp: new Date(Date.now() - 700000).toISOString(),
+            },
+            {
+              feed_session_id: 1,
+              event_type: "start",
+              side: "Left",
+              timestamp: new Date(Date.now() - 400000).toISOString(),
+            },
+            {
+              feed_session_id: 1,
+              event_type: "end",
+              side: "Left",
+              timestamp: new Date(Date.now() - 100000).toISOString(),
+            },
+          ],
+        },
+      ];
+
+      act(() => {
+        result.current.setSessions(sessions);
+      });
+
+      // Should suggest opposite of the completed session
+      expect(result.current.getSuggestedNextSide("A")).toBe("Right");
+    });
+
+    it("should ignore sessions without end events", () => {
+      const { result } = renderHook(() => useTimerStore());
+
+      const sessions: FeedSession[] = [
+        // Session that only has start - should be ignored
+        {
+          twin: "A",
+          events: [
+            {
+              feed_session_id: 1,
+              event_type: "start",
+              side: "Left",
+              timestamp: new Date().toISOString(),
+            },
+          ],
+        },
+        // Session that ends with pause - should be ignored
+        {
+          twin: "A",
+          events: [
+            {
+              feed_session_id: 2,
+              event_type: "start",
+              side: "Right",
+              timestamp: new Date().toISOString(),
+            },
+            {
+              feed_session_id: 2,
+              event_type: "pause",
+              side: "Right",
+              timestamp: new Date(Date.now() + 100000).toISOString(),
+            },
+          ],
+        },
+      ];
+
+      act(() => {
+        result.current.setSessions(sessions);
+      });
+
+      // Should default to Left when no completed sessions exist
+      expect(result.current.getSuggestedNextSide("A")).toBe("Left");
     });
   });
 });
