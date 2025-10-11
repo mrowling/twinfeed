@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -59,7 +59,7 @@ function SettingsPage() {
   ];
 
   // Debounced save function
-  const debouncedSave = async () => {
+  const debouncedSave = useCallback(async () => {
     if (Object.keys(pendingChanges).length === 0 || !localSettings) return;
 
     try {
@@ -84,7 +84,14 @@ function SettingsPage() {
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [
+    pendingChanges,
+    localSettings,
+    theme,
+    updateSettings,
+    setPendingChanges,
+    setIsSaving,
+  ]);
 
   // Effect to handle debounced saving
   useEffect(() => {
@@ -109,7 +116,7 @@ function SettingsPage() {
         window.clearTimeout(debounceTimeoutRef.current);
       }
     };
-  }, [pendingChanges]);
+  }, [pendingChanges, debouncedSave]);
 
   // Effect to hide pending toast when saving starts
   useEffect(() => {

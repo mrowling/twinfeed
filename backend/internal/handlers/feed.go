@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -8,14 +9,20 @@ import (
 	"twinfeed-backend/internal/models"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
-// CreateFeedRequest represents the request body for creating a feed session
-type CreateFeedRequest struct {
-	Twin      string    `json:"twin" binding:"required,oneof=A B"`
+// CreateFeedSessionRequest represents the request body for creating a feed session
+type CreateFeedSessionRequest struct {
+	Twin string `json:"twin" binding:"required,oneof=A B"`
+}
+
+// AddFeedEventRequest represents the request body for adding an event to a session
+type AddFeedEventRequest struct {
+	SessionID uint      `json:"session_id" binding:"required"`
+	EventType string    `json:"event_type" binding:"required,oneof=start pause end side_change"`
+	Timestamp time.Time `json:"timestamp" binding:"required"`
 	Side      string    `json:"side" binding:"required,oneof=Left Right"`
-	Duration  int       `json:"duration" binding:"required,min=1"`
-	StartTime time.Time `json:"start_time" binding:"required"`
 }
 
 // FeedsResponse represents the response for fetching feeds
@@ -30,9 +37,9 @@ type DeleteResponse struct {
 	DeletedCount int64  `json:"deleted_count"`
 }
 
-// CreateFeed creates a new feeding session
-func CreateFeed(c *gin.Context) {
-	var req CreateFeedRequest
+// CreateFeedSession creates a new feeding session
+func CreateFeedSession(c *gin.Context) {
+	var req CreateFeedSessionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -40,10 +47,8 @@ func CreateFeed(c *gin.Context) {
 
 	// Create new feed session
 	feed := models.FeedSession{
-		Twin:      req.Twin,
-		Side:      req.Side,
-		Duration:  req.Duration,
-		StartTime: req.StartTime,
+		Twin:   req.Twin,
+		Events: []models.FeedEvent{}, // Initialize empty events slice
 	}
 
 	db := database.GetDB()
@@ -55,7 +60,52 @@ func CreateFeed(c *gin.Context) {
 	c.JSON(http.StatusCreated, feed)
 }
 
-// GetFeeds retrieves all feeding sessions with optional pagination
+// AddFeedEvent adds an event (start/pause/end) to an existing session
+func AddFeedEvent(c *gin.Context) {
+	var req AddFeedEventRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	db := database.GetDB()
+
+	// Verify session exists
+	var session models.FeedSession
+	if err := db.First(&session, req.SessionID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Feed session not found"})
+		return
+	}
+
+	// Create new event
+	event := models.FeedEvent{
+		FeedSessionID: req.SessionID,
+		EventType:     req.EventType,
+		Side:          req.Side,
+		Timestamp:     req.Timestamp,
+	}
+
+	if err := db.Create(&event).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create feed event"})
+		return
+	}
+
+	// Log event in debug mode
+	if gin.IsDebugging() {
+		log.Printf("🎯 FEED EVENT RECORDED: SessionID=%d | EventType='%s' | Timestamp=%s | Side=%s",
+			req.SessionID, req.EventType, req.Timestamp.Format(time.RFC3339), req.Side)
+	}
+
+	// Update session's updated_at timestamp
+	if err := db.Model(&session).Update("updated_at", time.Now()).Error; err != nil {
+		// Log error but don't fail the request
+		// The event was created successfully
+	}
+
+	c.JSON(http.StatusCreated, event)
+}
+
+// GetFeeds retrieves all feeding sessions with their events and optional pagination
 func GetFeeds(c *gin.Context) {
 	db := database.GetDB()
 
@@ -85,8 +135,12 @@ func GetFeeds(c *gin.Context) {
 		return
 	}
 
-	// Get feeds with pagination, ordered by start_time descending
-	if err := db.Order("start_time DESC").
+	// Get feeds with events, ordered by created_at descending
+	// Events within each session are ordered by timestamp ascending
+	if err := db.Preload("Events", func(db *gorm.DB) *gorm.DB {
+		return db.Order("timestamp ASC")
+	}).
+		Order("created_at DESC").
 		Limit(limit).
 		Offset(offset).
 		Find(&feeds).Error; err != nil {
@@ -102,7 +156,7 @@ func GetFeeds(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
-// DeleteAllFeeds deletes all feeding sessions
+// DeleteAllFeeds deletes all feeding sessions and their events
 func DeleteAllFeeds(c *gin.Context) {
 	db := database.GetDB()
 
@@ -113,7 +167,7 @@ func DeleteAllFeeds(c *gin.Context) {
 		return
 	}
 
-	// Delete all records
+	// Delete all records (CASCADE will handle events)
 	result := db.Unscoped().Delete(&models.FeedSession{}, "1=1")
 	if result.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete feed sessions"})

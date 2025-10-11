@@ -34,12 +34,15 @@ func Initialize() error {
 	}
 
 	// Open database connection
-	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{
+	db, err := gorm.Open(sqlite.Open(dbPath+"?_fk=1"), &gorm.Config{
 		Logger: logger.Default.LogMode(logLevel),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to connect to database: %v", err)
 	}
+
+	// Enable foreign key constraints for SQLite
+	db.Exec("PRAGMA foreign_keys = ON")
 
 	// Set connection pool settings
 	sqlDB, err := db.DB()
@@ -51,7 +54,7 @@ func Initialize() error {
 	sqlDB.SetMaxIdleConns(1)
 
 	// Run migrations
-	if err := db.AutoMigrate(&models.FeedSession{}, &models.UserSettings{}); err != nil {
+	if err := db.AutoMigrate(&models.FeedSession{}, &models.FeedEvent{}, &models.UserSettings{}); err != nil {
 		return fmt.Errorf("failed to migrate database: %v", err)
 	}
 

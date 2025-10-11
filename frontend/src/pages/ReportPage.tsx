@@ -3,21 +3,48 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useApiSync } from "@/hooks/useApiSync";
-import { AlertTriangle, Loader2, Baby } from "lucide-react";
+import {
+  AlertTriangle,
+  Loader2,
+  Baby,
+  ChevronDown,
+  ChevronRight,
+} from "lucide-react";
 import { getTwinColorClasses } from "@/lib/twinColors";
 import type { FeedSession } from "@/types";
+import { calculateDuration } from "@/types";
+import { useState } from "react";
 
 function ReportPage() {
   const { sessions, clearAllSessions, isLoading, error, retry } = useApiSync();
+  const [expandedSessions, setExpandedSessions] = useState<Set<string>>(
+    new Set(),
+  );
 
   // Get custom twin names from localStorage
   const twinAName = localStorage.getItem("twinAName") || "Twin A";
   const twinBName = localStorage.getItem("twinBName") || "Twin B";
 
+  const toggleSessionExpansion = (sessionId: string) => {
+    setExpandedSessions((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(sessionId)) {
+        newSet.delete(sessionId);
+      } else {
+        newSet.add(sessionId);
+      }
+      return newSet;
+    });
+  };
+
   // Group sessions by date
   const groupedSessions = sessions.reduce(
     (groups: Record<string, FeedSession[]>, session: FeedSession) => {
-      const date = format(parseISO(session.start_time), "yyyy-MM-dd");
+      // Use the first event's timestamp as the session date
+      const firstEvent = session.events[0];
+      if (!firstEvent) return groups;
+
+      const date = format(parseISO(firstEvent.timestamp), "yyyy-MM-dd");
       if (!groups[date]) {
         groups[date] = [];
       }
@@ -59,7 +86,8 @@ function ReportPage() {
 
   const totalSessions = sessions.length;
   const totalDuration = sessions.reduce(
-    (total: number, session: FeedSession) => total + session.duration,
+    (total: number, session: FeedSession) =>
+      total + calculateDuration(session.events),
     0,
   );
 
@@ -182,41 +210,108 @@ function ReportPage() {
                   </h4>
                   <div className="space-y-2">
                     {groupedSessions[dateString]
-                      .sort(
-                        (a, b) =>
-                          new Date(b.start_time).getTime() -
-                          new Date(a.start_time).getTime(),
-                      )
-                      .map((session, index) => (
-                        <div
-                          key={`${session.start_time}-${index}`}
-                          className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
-                        >
-                          <div className="flex items-center space-x-3">
+                      .sort((a, b) => {
+                        const aTime = a.events[0]?.timestamp || "0";
+                        const bTime = b.events[0]?.timestamp || "0";
+                        return (
+                          new Date(bTime).getTime() - new Date(aTime).getTime()
+                        );
+                      })
+                      .map((session, index) => {
+                        const sessionId = `${session.events[0]?.timestamp || "unknown"}-${index}`;
+                        const isExpanded = expandedSessions.has(sessionId);
+                        return (
+                          <div
+                            key={sessionId}
+                            className="border rounded-lg overflow-hidden"
+                          >
                             <div
-                              className={`w-3 h-3 rounded-full ${getTwinColorClasses(session.twin).bg}`}
-                            />
-                            <div>
-                              <div className="font-medium text-foreground">
-                                {session.twin === "A" ? twinAName : twinBName}
+                              className="flex items-center justify-between p-3 bg-muted/50 cursor-pointer hover:bg-muted/70 transition-colors"
+                              onClick={() => toggleSessionExpansion(sessionId)}
+                            >
+                              <div className="flex items-center space-x-3">
+                                <div
+                                  className={`w-3 h-3 rounded-full ${getTwinColorClasses(session.twin).bg}`}
+                                />
+                                <div>
+                                  <div className="font-medium text-foreground">
+                                    {session.twin === "A"
+                                      ? twinAName
+                                      : twinBName}
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Badge
+                                      variant="outline"
+                                      className="text-xs"
+                                    >
+                                      {session.events[0]?.side || "Unknown"}
+                                    </Badge>
+                                    <span className="text-sm text-muted-foreground">
+                                      {session.events[0]
+                                        ? formatTime(
+                                            session.events[0].timestamp,
+                                          )
+                                        : "Unknown"}
+                                    </span>
+                                  </div>
+                                </div>
                               </div>
-                              <div className="flex items-center gap-2">
-                                <Badge variant="outline" className="text-xs">
-                                  {session.side}
-                                </Badge>
-                                <span className="text-sm text-muted-foreground">
-                                  {formatTime(session.start_time)}
-                                </span>
+                              <div className="flex items-center space-x-2">
+                                <div className="text-right">
+                                  <div className="font-medium text-foreground">
+                                    {formatDuration(
+                                      calculateDuration(session.events),
+                                    )}
+                                  </div>
+                                </div>
+                                {isExpanded ? (
+                                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                ) : (
+                                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                )}
                               </div>
                             </div>
+                            {isExpanded && (
+                              <div className="px-3 pb-3">
+                                <div className="pt-2 border-t">
+                                  <h5 className="text-sm font-medium text-muted-foreground mb-2">
+                                    Events ({session.events.length})
+                                  </h5>
+                                  <div className="space-y-1">
+                                    {session.events.map((event, eventIndex) => (
+                                      <div
+                                        key={eventIndex}
+                                        className="flex items-center justify-between text-sm py-1 px-2 bg-background rounded"
+                                      >
+                                        <div className="flex items-center space-x-2">
+                                          <Badge
+                                            variant={
+                                              event.event_type === "start"
+                                                ? "default"
+                                                : event.event_type === "end"
+                                                  ? "secondary"
+                                                  : "outline"
+                                            }
+                                            className="text-xs"
+                                          >
+                                            {event.event_type}
+                                          </Badge>
+                                          <span className="text-muted-foreground">
+                                            {event.side}
+                                          </span>
+                                        </div>
+                                        <span className="text-muted-foreground">
+                                          {formatTime(event.timestamp)}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
                           </div>
-                          <div className="text-right">
-                            <div className="font-medium text-foreground">
-                              {formatDuration(session.duration)}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                   </div>
                 </div>
               ))}

@@ -57,15 +57,15 @@
 				
 				<option value="file0">twinfeed-backend/cmd/server/main.go (0.0%)</option>
 				
-				<option value="file1">twinfeed-backend/internal/database/db.go (82.8%)</option>
+				<option value="file1">twinfeed-backend/internal/database/db.go (83.3%)</option>
 				
-				<option value="file2">twinfeed-backend/internal/handlers/feed.go (66.7%)</option>
+				<option value="file2">twinfeed-backend/internal/handlers/feed.go (68.1%)</option>
 				
 				<option value="file3">twinfeed-backend/internal/handlers/settings.go (71.9%)</option>
 				
 				<option value="file4">twinfeed-backend/internal/middleware/cors.go (100.0%)</option>
 				
-				<option value="file5">twinfeed-backend/internal/models/feed.go (100.0%)</option>
+				<option value="file5">twinfeed-backend/internal/models/feed.go (90.5%)</option>
 				
 				</select>
 			</div>
@@ -132,13 +132,15 @@ func main() <span class="cov0" title="0">{
         router.Use(gin.Logger())
         router.Use(gin.Recovery())
 
-        // Health check endpoint
-        router.GET("/health", handlers.HealthCheck)
-
         // API routes
         v1 := router.Group("/api/v1")
         </span><span class="cov0" title="0">{
-                v1.POST("/feed", handlers.CreateFeed)
+                // Health check endpoint
+                v1.GET("/health", handlers.HealthCheck)
+
+                // Feed routes
+                v1.POST("/sessions", handlers.CreateFeedSession) // New endpoint for creating sessions
+                v1.POST("/events", handlers.AddFeedEvent)        // New endpoint for adding events
                 v1.GET("/feeds", handlers.GetFeeds)
                 v1.DELETE("/feeds", handlers.DeleteAllFeeds)
 
@@ -227,15 +229,18 @@ func Initialize() error <span class="cov8" title="8">{
         }</span>
 
         // Open database connection
-        <span class="cov8" title="8">db, err := gorm.Open(sqlite.Open(dbPath), &amp;gorm.Config{
+        <span class="cov8" title="8">db, err := gorm.Open(sqlite.Open(dbPath+"?_fk=1"), &amp;gorm.Config{
                 Logger: logger.Default.LogMode(logLevel),
         })
         if err != nil </span><span class="cov0" title="0">{
                 return fmt.Errorf("failed to connect to database: %v", err)
         }</span>
 
+        // Enable foreign key constraints for SQLite
+        <span class="cov8" title="8">db.Exec("PRAGMA foreign_keys = ON")
+
         // Set connection pool settings
-        <span class="cov8" title="8">sqlDB, err := db.DB()
+        sqlDB, err := db.DB()
         if err != nil </span><span class="cov0" title="0">{
                 return fmt.Errorf("failed to get sql.DB: %v", err)
         }</span>
@@ -244,7 +249,7 @@ func Initialize() error <span class="cov8" title="8">{
         sqlDB.SetMaxIdleConns(1)
 
         // Run migrations
-        if err := db.AutoMigrate(&amp;models.FeedSession{}, &amp;models.UserSettings{}); err != nil </span><span class="cov0" title="0">{
+        if err := db.AutoMigrate(&amp;models.FeedSession{}, &amp;models.FeedEvent{}, &amp;models.UserSettings{}); err != nil </span><span class="cov0" title="0">{
                 return fmt.Errorf("failed to migrate database: %v", err)
         }</span>
 
@@ -274,6 +279,7 @@ func Close() error <span class="cov10" title="12">{
 		<pre class="file" id="file2" style="display: none">package handlers
 
 import (
+        "log"
         "net/http"
         "strconv"
         "time"
@@ -281,14 +287,20 @@ import (
         "twinfeed-backend/internal/models"
 
         "github.com/gin-gonic/gin"
+        "gorm.io/gorm"
 )
 
-// CreateFeedRequest represents the request body for creating a feed session
-type CreateFeedRequest struct {
-        Twin      string    `json:"twin" binding:"required,oneof=A B"`
+// CreateFeedSessionRequest represents the request body for creating a feed session
+type CreateFeedSessionRequest struct {
+        Twin string `json:"twin" binding:"required,oneof=A B"`
+}
+
+// AddFeedEventRequest represents the request body for adding an event to a session
+type AddFeedEventRequest struct {
+        SessionID uint      `json:"session_id" binding:"required"`
+        EventType string    `json:"event_type" binding:"required,oneof=start pause end side_change"`
+        Timestamp time.Time `json:"timestamp" binding:"required"`
         Side      string    `json:"side" binding:"required,oneof=Left Right"`
-        Duration  int       `json:"duration" binding:"required,min=1"`
-        StartTime time.Time `json:"start_time" binding:"required"`
 }
 
 // FeedsResponse represents the response for fetching feeds
@@ -303,20 +315,18 @@ type DeleteResponse struct {
         DeletedCount int64  `json:"deleted_count"`
 }
 
-// CreateFeed creates a new feeding session
-func CreateFeed(c *gin.Context) <span class="cov10" title="5">{
-        var req CreateFeedRequest
-        if err := c.ShouldBindJSON(&amp;req); err != nil </span><span class="cov8" title="4">{
+// CreateFeedSession creates a new feeding session
+func CreateFeedSession(c *gin.Context) <span class="cov5" title="2">{
+        var req CreateFeedSessionRequest
+        if err := c.ShouldBindJSON(&amp;req); err != nil </span><span class="cov1" title="1">{
                 c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
                 return
         }</span>
 
         // Create new feed session
         <span class="cov1" title="1">feed := models.FeedSession{
-                Twin:      req.Twin,
-                Side:      req.Side,
-                Duration:  req.Duration,
-                StartTime: req.StartTime,
+                Twin:   req.Twin,
+                Events: []models.FeedEvent{}, // Initialize empty events slice
         }
 
         db := database.GetDB()
@@ -328,8 +338,53 @@ func CreateFeed(c *gin.Context) <span class="cov10" title="5">{
         <span class="cov1" title="1">c.JSON(http.StatusCreated, feed)</span>
 }
 
-// GetFeeds retrieves all feeding sessions with optional pagination
-func GetFeeds(c *gin.Context) <span class="cov8" title="4">{
+// AddFeedEvent adds an event (start/pause/end) to an existing session
+func AddFeedEvent(c *gin.Context) <span class="cov5" title="2">{
+        var req AddFeedEventRequest
+        if err := c.ShouldBindJSON(&amp;req); err != nil </span><span class="cov0" title="0">{
+                c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+                return
+        }</span>
+
+        <span class="cov5" title="2">db := database.GetDB()
+
+        // Verify session exists
+        var session models.FeedSession
+        if err := db.First(&amp;session, req.SessionID).Error; err != nil </span><span class="cov1" title="1">{
+                c.JSON(http.StatusNotFound, gin.H{"error": "Feed session not found"})
+                return
+        }</span>
+
+        // Create new event
+        <span class="cov1" title="1">event := models.FeedEvent{
+                FeedSessionID: req.SessionID,
+                EventType:     req.EventType,
+                Side:          req.Side,
+                Timestamp:     req.Timestamp,
+        }
+
+        if err := db.Create(&amp;event).Error; err != nil </span><span class="cov0" title="0">{
+                c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create feed event"})
+                return
+        }</span>
+
+        // Log event in debug mode
+        <span class="cov1" title="1">if gin.IsDebugging() </span><span class="cov0" title="0">{
+                log.Printf("🎯 FEED EVENT RECORDED: SessionID=%d | EventType='%s' | Timestamp=%s | Side=%s",
+                        req.SessionID, req.EventType, req.Timestamp.Format(time.RFC3339), req.Side)
+        }</span>
+
+        // Update session's updated_at timestamp
+        <span class="cov1" title="1">if err := db.Model(&amp;session).Update("updated_at", time.Now()).Error; err != nil </span>{<span class="cov0" title="0">
+                // Log error but don't fail the request
+                // The event was created successfully
+        }</span>
+
+        <span class="cov1" title="1">c.JSON(http.StatusCreated, event)</span>
+}
+
+// GetFeeds retrieves all feeding sessions with their events and optional pagination
+func GetFeeds(c *gin.Context) <span class="cov10" title="4">{
         db := database.GetDB()
 
         // Parse query parameters
@@ -340,16 +395,16 @@ func GetFeeds(c *gin.Context) <span class="cov8" title="4">{
         if err != nil || limit &lt; 1 </span><span class="cov0" title="0">{
                 limit = 100
         }</span>
-        <span class="cov8" title="4">if limit &gt; 1000 </span><span class="cov0" title="0">{
+        <span class="cov10" title="4">if limit &gt; 1000 </span><span class="cov0" title="0">{
                 limit = 1000 // Maximum limit
         }</span>
 
-        <span class="cov8" title="4">offset, err := strconv.Atoi(offsetStr)
+        <span class="cov10" title="4">offset, err := strconv.Atoi(offsetStr)
         if err != nil || offset &lt; 0 </span><span class="cov0" title="0">{
                 offset = 0
         }</span>
 
-        <span class="cov8" title="4">var feeds []models.FeedSession
+        <span class="cov10" title="4">var feeds []models.FeedSession
         var total int64
 
         // Get total count
@@ -358,16 +413,20 @@ func GetFeeds(c *gin.Context) <span class="cov8" title="4">{
                 return
         }</span>
 
-        // Get feeds with pagination, ordered by start_time descending
-        <span class="cov8" title="4">if err := db.Order("start_time DESC").
+        // Get feeds with events, ordered by created_at descending
+        // Events within each session are ordered by timestamp ascending
+        <span class="cov10" title="4">if err := db.Preload("Events", func(db *gorm.DB) *gorm.DB </span><span class="cov8" title="3">{
+                return db.Order("timestamp ASC")
+        }</span>).
+                Order("created_at DESC").
                 Limit(limit).
                 Offset(offset).
-                Find(&amp;feeds).Error; err != nil </span><span class="cov0" title="0">{
+                Find(&amp;feeds).Error; err != nil <span class="cov0" title="0">{
                 c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch feed sessions"})
                 return
         }</span>
 
-        <span class="cov8" title="4">response := FeedsResponse{
+        <span class="cov10" title="4">response := FeedsResponse{
                 Feeds: feeds,
                 Total: total,
         }
@@ -375,8 +434,8 @@ func GetFeeds(c *gin.Context) <span class="cov8" title="4">{
         c.JSON(http.StatusOK, response)</span>
 }
 
-// DeleteAllFeeds deletes all feeding sessions
-func DeleteAllFeeds(c *gin.Context) <span class="cov4" title="2">{
+// DeleteAllFeeds deletes all feeding sessions and their events
+func DeleteAllFeeds(c *gin.Context) <span class="cov5" title="2">{
         db := database.GetDB()
 
         // Count existing records before deletion
@@ -386,14 +445,14 @@ func DeleteAllFeeds(c *gin.Context) <span class="cov4" title="2">{
                 return
         }</span>
 
-        // Delete all records
-        <span class="cov4" title="2">result := db.Unscoped().Delete(&amp;models.FeedSession{}, "1=1")
+        // Delete all records (CASCADE will handle events)
+        <span class="cov5" title="2">result := db.Unscoped().Delete(&amp;models.FeedSession{}, "1=1")
         if result.Error != nil </span><span class="cov0" title="0">{
                 c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete feed sessions"})
                 return
         }</span>
 
-        <span class="cov4" title="2">response := DeleteResponse{
+        <span class="cov5" title="2">response := DeleteResponse{
                 Message:      "All feeding sessions deleted",
                 DeletedCount: count,
         }
@@ -598,19 +657,72 @@ import (
 )
 
 type FeedSession struct {
-        ID        uint      `json:"id" gorm:"primaryKey"`
-        Twin      string    `json:"twin" gorm:"not null" validate:"required,oneof=A B"`
-        Side      string    `json:"side" gorm:"not null" validate:"required,oneof=Left Right"`
-        Duration  int       `json:"duration" gorm:"not null" validate:"required,min=1"`
-        StartTime time.Time `json:"start_time" gorm:"not null" validate:"required"`
-        CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
-        UpdatedAt time.Time `json:"updated_at" gorm:"autoUpdateTime"`
+        ID        uint        `json:"id" gorm:"primaryKey"`
+        Twin      string      `json:"twin" gorm:"not null" validate:"required,oneof=A B"`
+        Events    []FeedEvent `json:"events" gorm:"foreignKey:FeedSessionID;constraint:OnDelete:CASCADE"`
+        CreatedAt time.Time   `json:"created_at" gorm:"autoCreateTime"`
+        UpdatedAt time.Time   `json:"updated_at" gorm:"autoUpdateTime"`
+}
+
+type FeedEvent struct {
+        ID            uint      `json:"id" gorm:"primaryKey"`
+        FeedSessionID uint      `json:"feed_session_id" gorm:"not null"`
+        EventType     string    `json:"event_type" gorm:"not null" validate:"required,oneof=start pause end side_change"`
+        Side          string    `json:"side" gorm:"not null" validate:"required,oneof=Left Right"`
+        Timestamp     time.Time `json:"timestamp" gorm:"not null" validate:"required"`
+        CreatedAt     time.Time `json:"created_at" gorm:"autoCreateTime"`
 }
 
 // TableName specifies the table name for the FeedSession model
-func (FeedSession) TableName() string <span class="cov8" title="1">{
+func (FeedSession) TableName() string <span class="cov1" title="1">{
         return "feed_sessions"
 }</span>
+
+// TableName specifies the table name for the FeedEvent model
+func (FeedEvent) TableName() string <span class="cov1" title="1">{
+        return "feed_events"
+}</span>
+
+// GetTotalDuration calculates the total feeding duration from events
+func (fs *FeedSession) GetTotalDuration() int <span class="cov6" title="4">{
+        if len(fs.Events) == 0 </span><span class="cov1" title="1">{
+                return 0
+        }</span>
+
+        <span class="cov4" title="3">var totalDuration int
+        var startTime *time.Time
+
+        for _, event := range fs.Events </span><span class="cov10" title="12">{
+                switch event.EventType </span>{
+                case "start":<span class="cov7" title="6">
+                        startTime = &amp;event.Timestamp</span>
+                case "pause", "end":<span class="cov7" title="6">
+                        if startTime != nil </span><span class="cov7" title="6">{
+                                duration := int(event.Timestamp.Sub(*startTime).Seconds())
+                                totalDuration += duration
+                                startTime = nil
+                        }</span>
+                }
+        }
+
+        // If session is still active (no pause/end event after last start)
+        <span class="cov4" title="3">if startTime != nil </span><span class="cov0" title="0">{
+                duration := int(time.Now().Sub(*startTime).Seconds())
+                totalDuration += duration
+        }</span>
+
+        <span class="cov4" title="3">return totalDuration</span>
+}
+
+// IsActive returns true if the session is currently active (started but not paused/ended)
+func (fs *FeedSession) IsActive() bool <span class="cov6" title="5">{
+        if len(fs.Events) == 0 </span><span class="cov1" title="1">{
+                return false
+        }</span>
+
+        <span class="cov6" title="4">lastEvent := fs.Events[len(fs.Events)-1]
+        return lastEvent.EventType == "start" || lastEvent.EventType == "side_change"</span>
+}
 </pre>
 		
 		</div>
