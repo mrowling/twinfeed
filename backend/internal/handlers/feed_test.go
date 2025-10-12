@@ -46,7 +46,7 @@ func (suite *FeedHandlerTestSuite) SetupSuite() {
 
 	// Setup router with all endpoints
 	suite.router = gin.New()
-	
+
 	// API v1 group
 	v1 := suite.router.Group("/api/v1")
 	{

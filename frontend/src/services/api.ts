@@ -19,6 +19,9 @@ export interface FeedsResponse {
 
 export interface UpdateSessionRequest {
   twin: "A" | "B";
+  bottle_amount?: number;
+  bottle_type?: "breastmilk" | "formula";
+  created_at?: string;
 }
 
 export interface UpdateEventRequest {

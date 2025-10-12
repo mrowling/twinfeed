@@ -21,11 +21,24 @@ import type { FeedSession, FeedEvent } from "@/types";
 import { calculateDuration } from "@/types";
 import { useState } from "react";
 import { feedApi } from "@/services/api";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 
 function ReportPage() {
-  const { sessions, clearAllSessions, isLoading, error, retry, refreshSessions } = useApiSync();
+  const {
+    sessions,
+    clearAllSessions,
+    isLoading,
+    error,
+    retry,
+    refreshSessions,
+  } = useApiSync();
   const { settings } = useSettings();
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(
     new Set(),
@@ -33,7 +46,12 @@ function ReportPage() {
   const [editingSession, setEditingSession] = useState<string | null>(null);
   const [editingEvent, setEditingEvent] = useState<string | null>(null);
   const [addingEvent, setAddingEvent] = useState<string | null>(null);
-  const [sessionEditData, setSessionEditData] = useState<{ twin: "A" | "B" } | null>(null);
+  const [sessionEditData, setSessionEditData] = useState<{
+    twin: "A" | "B";
+    bottle_amount?: number;
+    bottle_type?: "breastmilk" | "formula";
+    created_at?: string;
+  } | null>(null);
   const [eventEditData, setEventEditData] = useState<{
     event_type: "start" | "pause" | "end" | "side_change";
     side: "Left" | "Right";
@@ -46,8 +64,10 @@ function ReportPage() {
   } | null>(null);
 
   // Get custom twin names from settings (which syncs with localStorage)
-  const twinAName = settings?.twin_a_name || localStorage.getItem("twinAName") || "Twin A";
-  const twinBName = settings?.twin_b_name || localStorage.getItem("twinBName") || "Twin B";
+  const twinAName =
+    settings?.twin_a_name || localStorage.getItem("twinAName") || "Twin A";
+  const twinBName =
+    settings?.twin_b_name || localStorage.getItem("twinBName") || "Twin B";
 
   const toggleSessionExpansion = (sessionId: string) => {
     setExpandedSessions((prev) => {
@@ -63,7 +83,12 @@ function ReportPage() {
 
   const startEditingSession = (session: FeedSession) => {
     setEditingSession(session.id?.toString() || null);
-    setSessionEditData({ twin: session.twin });
+    setSessionEditData({
+      twin: session.twin,
+      bottle_amount: session.bottle_amount,
+      bottle_type: session.bottle_type,
+      created_at: session.created_at,
+    });
   };
 
   const cancelEditingSession = () => {
@@ -84,7 +109,8 @@ function ReportPage() {
   };
 
   const deleteSession = async (sessionId: number) => {
-    if (!window.confirm("Are you sure you want to delete this session?")) return;
+    if (!window.confirm("Are you sure you want to delete this session?"))
+      return;
 
     try {
       await feedApi.deleteSession(sessionId);
@@ -165,11 +191,11 @@ function ReportPage() {
   // Group sessions by date
   const groupedSessions = sessions.reduce(
     (groups: Record<string, FeedSession[]>, session: FeedSession) => {
-      // Use the first event's timestamp as the session date
-      const firstEvent = session.events[0];
-      if (!firstEvent) return groups;
+      // Use the first event's timestamp for timer feeds, or created_at for bottle feeds
+      const timestamp = session.events[0]?.timestamp || session.created_at;
+      if (!timestamp) return groups;
 
-      const date = format(parseISO(firstEvent.timestamp), "yyyy-MM-dd");
+      const date = format(parseISO(timestamp), "yyyy-MM-dd");
       if (!groups[date]) {
         groups[date] = [];
       }
@@ -336,8 +362,10 @@ function ReportPage() {
                   <div className="space-y-2">
                     {groupedSessions[dateString]
                       .sort((a, b) => {
-                        const aTime = a.created_at || a.events[0]?.timestamp || "0";
-                        const bTime = b.created_at || b.events[0]?.timestamp || "0";
+                        const aTime =
+                          a.created_at || a.events[0]?.timestamp || "0";
+                        const bTime =
+                          b.created_at || b.events[0]?.timestamp || "0";
                         return (
                           new Date(bTime).getTime() - new Date(aTime).getTime()
                         );
@@ -360,41 +388,171 @@ function ReportPage() {
                                 />
                                 <div>
                                   {editingSession === session.id?.toString() ? (
-                                    <div className="flex items-center space-x-2" onClick={(e) => e.stopPropagation()}>
-                                      <Select
-                                        value={sessionEditData?.twin || session.twin}
-                                        onValueChange={(value: "A" | "B") =>
-                                          setSessionEditData(prev => prev ? { ...prev, twin: value } : null)
-                                        }
-                                      >
-                                        <SelectTrigger className="w-32">
-                                          <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          <SelectItem value="A">{twinAName}</SelectItem>
-                                          <SelectItem value="B">{twinBName}</SelectItem>
-                                        </SelectContent>
-                                      </Select>
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          session.id && saveSessionEdit(session.id);
-                                        }}
-                                      >
-                                        <Save className="h-4 w-4" />
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          cancelEditingSession();
-                                        }}
-                                      >
-                                        <X className="h-4 w-4" />
-                                      </Button>
+                                    <div
+                                      className="flex flex-col space-y-2 w-full"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      <div className="flex items-center space-x-2">
+                                        <span className="text-sm font-medium w-12">
+                                          Twin:
+                                        </span>
+                                        <Select
+                                          value={
+                                            sessionEditData?.twin ||
+                                            session.twin
+                                          }
+                                          onValueChange={(value: "A" | "B") =>
+                                            setSessionEditData((prev) =>
+                                              prev
+                                                ? { ...prev, twin: value }
+                                                : null,
+                                            )
+                                          }
+                                        >
+                                          <SelectTrigger className="w-32">
+                                            <SelectValue />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            <SelectItem value="A">
+                                              {twinAName}
+                                            </SelectItem>
+                                            <SelectItem value="B">
+                                              {twinBName}
+                                            </SelectItem>
+                                          </SelectContent>
+                                        </Select>
+                                      </div>
+                                      {session.is_bottle && (
+                                        <>
+                                          <div className="flex items-center space-x-2">
+                                            <span className="text-sm font-medium w-12">
+                                              Amount:
+                                            </span>
+                                            <Input
+                                              type="number"
+                                              placeholder="Amount (ml)"
+                                              value={
+                                                sessionEditData?.bottle_amount ||
+                                                ""
+                                              }
+                                              onChange={(e) =>
+                                                setSessionEditData((prev) =>
+                                                  prev
+                                                    ? {
+                                                      ...prev,
+                                                      bottle_amount:
+                                                        parseFloat(
+                                                          e.target.value,
+                                                        ) || undefined,
+                                                    }
+                                                    : null,
+                                                )
+                                              }
+                                              className="w-24"
+                                            />
+                                            <span className="text-sm text-muted-foreground">
+                                              ml
+                                            </span>
+                                          </div>
+                                          <div className="flex items-center space-x-2">
+                                            <span className="text-sm font-medium w-12">
+                                              Type:
+                                            </span>
+                                            <Select
+                                              value={
+                                                sessionEditData?.bottle_type ||
+                                                session.bottle_type ||
+                                                ""
+                                              }
+                                              onValueChange={(
+                                                value: "breastmilk" | "formula",
+                                              ) =>
+                                                setSessionEditData((prev) =>
+                                                  prev
+                                                    ? {
+                                                      ...prev,
+                                                      bottle_type: value,
+                                                    }
+                                                    : null,
+                                                )
+                                              }
+                                            >
+                                              <SelectTrigger className="w-32">
+                                                <SelectValue placeholder="Type" />
+                                              </SelectTrigger>
+                                              <SelectContent>
+                                                <SelectItem value="breastmilk">
+                                                  Breastmilk
+                                                </SelectItem>
+                                                <SelectItem value="formula">
+                                                  Formula
+                                                </SelectItem>
+                                              </SelectContent>
+                                            </Select>
+                                          </div>
+                                          <div className="flex items-center space-x-2">
+                                            <span className="text-sm font-medium w-12">
+                                              Time:
+                                            </span>
+                                            <Input
+                                              type="datetime-local"
+                                              value={
+                                                sessionEditData?.created_at
+                                                  ? new Date(
+                                                    sessionEditData.created_at,
+                                                  )
+                                                    .toISOString()
+                                                    .slice(0, 16)
+                                                  : session.created_at
+                                                    ? new Date(
+                                                      session.created_at,
+                                                    )
+                                                      .toISOString()
+                                                      .slice(0, 16)
+                                                    : ""
+                                              }
+                                              onChange={(e) =>
+                                                setSessionEditData((prev) =>
+                                                  prev
+                                                    ? {
+                                                      ...prev,
+                                                      created_at: new Date(
+                                                        e.target.value,
+                                                      ).toISOString(),
+                                                    }
+                                                    : null,
+                                                )
+                                              }
+                                              className="flex-1"
+                                            />
+                                          </div>
+                                        </>
+                                      )}
+                                      <div className="flex items-center space-x-2 pt-2">
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            session.id &&
+                                              saveSessionEdit(session.id);
+                                          }}
+                                        >
+                                          <Save className="h-4 w-4 mr-1" />
+                                          Save
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            cancelEditingSession();
+                                          }}
+                                        >
+                                          <X className="h-4 w-4 mr-1" />
+                                          Cancel
+                                        </Button>
+                                      </div>
                                     </div>
                                   ) : (
                                     <>
@@ -405,19 +563,28 @@ function ReportPage() {
                                       </div>
                                       <div className="flex items-center gap-2">
                                         {session.is_bottle ? (
-                                          <Badge variant="outline" className="text-xs">
+                                          <Badge
+                                            variant="outline"
+                                            className="text-xs"
+                                          >
                                             Bottle
                                           </Badge>
                                         ) : (
-                                          <Badge variant="outline" className="text-xs">
-                                            {session.events[0]?.side || "Unknown"}
+                                          <Badge
+                                            variant="outline"
+                                            className="text-xs"
+                                          >
+                                            {session.events[0]?.side ||
+                                              "Unknown"}
                                           </Badge>
                                         )}
                                         <span className="text-sm text-muted-foreground">
                                           {session.created_at
                                             ? formatTime(session.created_at)
                                             : session.events[0]
-                                              ? formatTime(session.events[0].timestamp)
+                                              ? formatTime(
+                                                session.events[0].timestamp,
+                                              )
                                               : "Unknown"}
                                         </span>
                                       </div>
@@ -431,12 +598,17 @@ function ReportPage() {
                                     {session.is_bottle ? (
                                       <div className="flex flex-col items-end">
                                         <span>{session.bottle_amount} ml</span>
-                                        <Badge variant="outline" className="text-xs mt-1">
+                                        <Badge
+                                          variant="outline"
+                                          className="text-xs mt-1"
+                                        >
                                           {session.bottle_type}
                                         </Badge>
                                       </div>
                                     ) : (
-                                      formatDuration(calculateDuration(session.events))
+                                      formatDuration(
+                                        calculateDuration(session.events),
+                                      )
                                     )}
                                   </div>
                                 </div>
@@ -464,14 +636,15 @@ function ReportPage() {
                                     </Button>
                                   </>
                                 )}
-                                {isExpanded ? (
-                                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                                ) : (
-                                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                                )}
+                                {!session.is_bottle &&
+                                  (isExpanded ? (
+                                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                  ) : (
+                                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                  ))}
                               </div>
                             </div>
-                            {isExpanded && (
+                            {isExpanded && !session.is_bottle && (
                               <div className="px-3 pb-3">
                                 <div className="pt-2 border-t">
                                   {session.is_bottle ? (
@@ -480,20 +653,108 @@ function ReportPage() {
                                         Bottle Details
                                       </h5>
                                       <div className="bg-muted/50 rounded p-3 space-y-2">
+                                        {editingSession ===
+                                          session.id?.toString() ? (
+                                          <>
+                                            <div className="flex items-center justify-between">
+                                              <span className="text-sm text-muted-foreground">
+                                                Amount:
+                                              </span>
+                                              <Input
+                                                type="number"
+                                                value={
+                                                  sessionEditData?.bottle_amount ||
+                                                  ""
+                                                }
+                                                onChange={(e) =>
+                                                  setSessionEditData((prev) =>
+                                                    prev
+                                                      ? {
+                                                        ...prev,
+                                                        bottle_amount:
+                                                          parseFloat(
+                                                            e.target.value,
+                                                          ) || undefined,
+                                                      }
+                                                      : null,
+                                                  )
+                                                }
+                                                className="w-20 h-7 text-sm"
+                                              />
+                                              <span className="text-sm text-muted-foreground ml-1">
+                                                ml
+                                              </span>
+                                            </div>
+                                            <div className="flex items-center justify-between">
+                                              <span className="text-sm text-muted-foreground">
+                                                Type:
+                                              </span>
+                                              <Select
+                                                value={
+                                                  sessionEditData?.bottle_type ||
+                                                  session.bottle_type ||
+                                                  ""
+                                                }
+                                                onValueChange={(
+                                                  value:
+                                                    | "breastmilk"
+                                                    | "formula",
+                                                ) =>
+                                                  setSessionEditData((prev) =>
+                                                    prev
+                                                      ? {
+                                                        ...prev,
+                                                        bottle_type: value,
+                                                      }
+                                                      : null,
+                                                  )
+                                                }
+                                              >
+                                                <SelectTrigger className="w-24 h-7">
+                                                  <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                  <SelectItem value="breastmilk">
+                                                    Breastmilk
+                                                  </SelectItem>
+                                                  <SelectItem value="formula">
+                                                    Formula
+                                                  </SelectItem>
+                                                </SelectContent>
+                                              </Select>
+                                            </div>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <div className="flex justify-between">
+                                              <span className="text-sm text-muted-foreground">
+                                                Amount:
+                                              </span>
+                                              <span className="text-sm font-medium">
+                                                {session.bottle_amount} ml
+                                              </span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                              <span className="text-sm text-muted-foreground">
+                                                Type:
+                                              </span>
+                                              <Badge
+                                                variant="outline"
+                                                className="text-xs"
+                                              >
+                                                {session.bottle_type}
+                                              </Badge>
+                                            </div>
+                                          </>
+                                        )}
                                         <div className="flex justify-between">
-                                          <span className="text-sm text-muted-foreground">Amount:</span>
-                                          <span className="text-sm font-medium">{session.bottle_amount} ml</span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                          <span className="text-sm text-muted-foreground">Type:</span>
-                                          <Badge variant="outline" className="text-xs">
-                                            {session.bottle_type}
-                                          </Badge>
-                                        </div>
-                                        <div className="flex justify-between">
-                                          <span className="text-sm text-muted-foreground">Time:</span>
+                                          <span className="text-sm text-muted-foreground">
+                                            Time:
+                                          </span>
                                           <span className="text-sm">
-                                            {session.created_at ? formatTime(session.created_at) : "Unknown"}
+                                            {session.created_at
+                                              ? formatTime(session.created_at)
+                                              : "Unknown"}
                                           </span>
                                         </div>
                                       </div>
@@ -504,162 +765,299 @@ function ReportPage() {
                                         Events ({session.events.length})
                                       </h5>
                                       <div className="space-y-1">
-                                        {session.events.map((event, eventIndex) => {
-                                          const eventKey = `${event.feed_session_id}-${event.id}`;
-                                          const isEditing = editingEvent === eventKey;
-                                          return (
-                                            <div
-                                              key={eventIndex}
-                                              className="flex items-center justify-between text-sm py-1 px-2 bg-background rounded"
-                                            >
-                                              {isEditing ? (
-                                                <div className="flex items-center space-x-2 flex-1">
-                                                  <Select
-                                                    value={eventEditData?.event_type || event.event_type}
-                                                    onValueChange={(value: "start" | "pause" | "end" | "side_change") =>
-                                                      setEventEditData(prev => prev ? { ...prev, event_type: value } : null)
-                                                    }
-                                                  >
-                                                    <SelectTrigger className="w-24">
-                                                      <SelectValue />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                      <SelectItem value="start">Start</SelectItem>
-                                                      <SelectItem value="pause">Pause</SelectItem>
-                                                      <SelectItem value="end">End</SelectItem>
-                                                      <SelectItem value="side_change">Side Change</SelectItem>
-                                                    </SelectContent>
-                                                  </Select>
-                                                  <Select
-                                                    value={eventEditData?.side || event.side}
-                                                    onValueChange={(value: "Left" | "Right") =>
-                                                      setEventEditData(prev => prev ? { ...prev, side: value } : null)
-                                                    }
-                                                  >
-                                                    <SelectTrigger className="w-20">
-                                                      <SelectValue />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                      <SelectItem value="Left">Left</SelectItem>
-                                                      <SelectItem value="Right">Right</SelectItem>
-                                                    </SelectContent>
-                                                  </Select>
-                                                  <Input
-                                                    type="datetime-local"
-                                                    value={eventEditData?.timestamp ?
-                                                      new Date(eventEditData.timestamp).toISOString().slice(0, 16) :
-                                                      new Date(event.timestamp).toISOString().slice(0, 16)
-                                                    }
-                                                    onChange={(e) =>
-                                                      setEventEditData(prev => prev ? { ...prev, timestamp: new Date(e.target.value).toISOString() } : null)
-                                                    }
-                                                    className="flex-1"
-                                                  />
-                                                  <Button
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    onClick={() => event.id && saveEventEdit(event.id)}
-                                                  >
-                                                    <Save className="h-4 w-4" />
-                                                  </Button>
-                                                  <Button
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    onClick={cancelEditingEvent}
-                                                  >
-                                                    <X className="h-4 w-4" />
-                                                  </Button>
-                                                </div>
-                                              ) : (
-                                                <>
-                                                  <div className="flex items-center space-x-2">
-                                                    <Badge
-                                                      variant={
-                                                        event.event_type === "start"
-                                                          ? "default"
-                                                          : event.event_type === "end"
-                                                            ? "secondary"
-                                                            : "outline"
+                                        {session.events.map(
+                                          (event, eventIndex) => {
+                                            const eventKey = `${event.feed_session_id}-${event.id}`;
+                                            const isEditing =
+                                              editingEvent === eventKey;
+                                            return (
+                                              <div
+                                                key={eventIndex}
+                                                className="flex items-center justify-between text-sm py-1 px-2 bg-background rounded"
+                                              >
+                                                {isEditing ? (
+                                                  <div className="flex items-center space-x-2 flex-1">
+                                                    <Select
+                                                      value={
+                                                        eventEditData?.event_type ||
+                                                        event.event_type
                                                       }
-                                                      className="text-xs"
+                                                      onValueChange={(
+                                                        value:
+                                                          | "start"
+                                                          | "pause"
+                                                          | "end"
+                                                          | "side_change",
+                                                      ) =>
+                                                        setEventEditData(
+                                                          (prev) =>
+                                                            prev
+                                                              ? {
+                                                                ...prev,
+                                                                event_type:
+                                                                  value,
+                                                              }
+                                                              : null,
+                                                        )
+                                                      }
                                                     >
-                                                      {event.event_type}
-                                                    </Badge>
-                                                    <span className="text-muted-foreground">
-                                                      {event.side}
-                                                    </span>
-                                                  </div>
-                                                  <div className="flex items-center space-x-2">
-                                                    <span className="text-muted-foreground">
-                                                      {formatTime(event.timestamp)}
-                                                    </span>
+                                                      <SelectTrigger className="w-24">
+                                                        <SelectValue />
+                                                      </SelectTrigger>
+                                                      <SelectContent>
+                                                        <SelectItem value="start">
+                                                          Start
+                                                        </SelectItem>
+                                                        <SelectItem value="pause">
+                                                          Pause
+                                                        </SelectItem>
+                                                        <SelectItem value="end">
+                                                          End
+                                                        </SelectItem>
+                                                        <SelectItem value="side_change">
+                                                          Side Change
+                                                        </SelectItem>
+                                                      </SelectContent>
+                                                    </Select>
+                                                    <Select
+                                                      value={
+                                                        eventEditData?.side ||
+                                                        event.side
+                                                      }
+                                                      onValueChange={(
+                                                        value: "Left" | "Right",
+                                                      ) =>
+                                                        setEventEditData(
+                                                          (prev) =>
+                                                            prev
+                                                              ? {
+                                                                ...prev,
+                                                                side: value,
+                                                              }
+                                                              : null,
+                                                        )
+                                                      }
+                                                    >
+                                                      <SelectTrigger className="w-20">
+                                                        <SelectValue />
+                                                      </SelectTrigger>
+                                                      <SelectContent>
+                                                        <SelectItem value="Left">
+                                                          Left
+                                                        </SelectItem>
+                                                        <SelectItem value="Right">
+                                                          Right
+                                                        </SelectItem>
+                                                      </SelectContent>
+                                                    </Select>
+                                                    <Input
+                                                      type="datetime-local"
+                                                      value={
+                                                        eventEditData?.timestamp
+                                                          ? new Date(
+                                                            eventEditData.timestamp,
+                                                          )
+                                                            .toISOString()
+                                                            .slice(0, 16)
+                                                          : new Date(
+                                                            event.timestamp,
+                                                          )
+                                                            .toISOString()
+                                                            .slice(0, 16)
+                                                      }
+                                                      onChange={(e) =>
+                                                        setEventEditData(
+                                                          (prev) =>
+                                                            prev
+                                                              ? {
+                                                                ...prev,
+                                                                timestamp:
+                                                                  new Date(
+                                                                    e.target.value,
+                                                                  ).toISOString(),
+                                                              }
+                                                              : null,
+                                                        )
+                                                      }
+                                                      className="flex-1"
+                                                    />
                                                     <Button
                                                       size="sm"
                                                       variant="ghost"
-                                                      onClick={() => startEditingEvent(event)}
+                                                      onClick={() =>
+                                                        event.id &&
+                                                        saveEventEdit(event.id)
+                                                      }
                                                     >
-                                                      <Edit className="h-3 w-3" />
+                                                      <Save className="h-4 w-4" />
                                                     </Button>
                                                     <Button
                                                       size="sm"
                                                       variant="ghost"
-                                                      onClick={() => event.id && deleteEvent(event.id)}
+                                                      onClick={
+                                                        cancelEditingEvent
+                                                      }
                                                     >
-                                                      <Trash2 className="h-3 w-3" />
+                                                      <X className="h-4 w-4" />
                                                     </Button>
                                                   </div>
-                                                </>
-                                              )}
-                                            </div>
-                                          );
-                                        })}
+                                                ) : (
+                                                  <>
+                                                    <div className="flex items-center space-x-2">
+                                                      <Badge
+                                                        variant={
+                                                          event.event_type ===
+                                                            "start"
+                                                            ? "default"
+                                                            : event.event_type ===
+                                                              "end"
+                                                              ? "secondary"
+                                                              : "outline"
+                                                        }
+                                                        className="text-xs"
+                                                      >
+                                                        {event.event_type}
+                                                      </Badge>
+                                                      <span className="text-muted-foreground">
+                                                        {event.side}
+                                                      </span>
+                                                    </div>
+                                                    <div className="flex items-center space-x-2">
+                                                      <span className="text-muted-foreground">
+                                                        {formatTime(
+                                                          event.timestamp,
+                                                        )}
+                                                      </span>
+                                                      <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        onClick={() =>
+                                                          startEditingEvent(
+                                                            event,
+                                                          )
+                                                        }
+                                                      >
+                                                        <Edit className="h-3 w-3" />
+                                                      </Button>
+                                                      <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        onClick={() =>
+                                                          event.id &&
+                                                          deleteEvent(event.id)
+                                                        }
+                                                      >
+                                                        <Trash2 className="h-3 w-3" />
+                                                      </Button>
+                                                    </div>
+                                                  </>
+                                                )}
+                                              </div>
+                                            );
+                                          },
+                                        )}
                                         {addingEvent === sessionId ? (
                                           <div className="flex items-center space-x-2 py-1 px-2 bg-muted/50 rounded">
                                             <Select
-                                              value={newEventData?.event_type || "start"}
-                                              onValueChange={(value: "start" | "pause" | "end" | "side_change") =>
-                                                setNewEventData(prev => prev ? { ...prev, event_type: value } : null)
+                                              value={
+                                                newEventData?.event_type ||
+                                                "start"
+                                              }
+                                              onValueChange={(
+                                                value:
+                                                  | "start"
+                                                  | "pause"
+                                                  | "end"
+                                                  | "side_change",
+                                              ) =>
+                                                setNewEventData((prev) =>
+                                                  prev
+                                                    ? {
+                                                      ...prev,
+                                                      event_type: value,
+                                                    }
+                                                    : null,
+                                                )
                                               }
                                             >
                                               <SelectTrigger className="w-24">
                                                 <SelectValue />
                                               </SelectTrigger>
                                               <SelectContent>
-                                                <SelectItem value="start">Start</SelectItem>
-                                                <SelectItem value="pause">Pause</SelectItem>
-                                                <SelectItem value="end">End</SelectItem>
-                                                <SelectItem value="side_change">Side Change</SelectItem>
+                                                <SelectItem value="start">
+                                                  Start
+                                                </SelectItem>
+                                                <SelectItem value="pause">
+                                                  Pause
+                                                </SelectItem>
+                                                <SelectItem value="end">
+                                                  End
+                                                </SelectItem>
+                                                <SelectItem value="side_change">
+                                                  Side Change
+                                                </SelectItem>
                                               </SelectContent>
                                             </Select>
                                             <Select
-                                              value={newEventData?.side || "Left"}
-                                              onValueChange={(value: "Left" | "Right") =>
-                                                setNewEventData(prev => prev ? { ...prev, side: value } : null)
+                                              value={
+                                                newEventData?.side || "Left"
+                                              }
+                                              onValueChange={(
+                                                value: "Left" | "Right",
+                                              ) =>
+                                                setNewEventData((prev) =>
+                                                  prev
+                                                    ? { ...prev, side: value }
+                                                    : null,
+                                                )
                                               }
                                             >
                                               <SelectTrigger className="w-20">
                                                 <SelectValue />
                                               </SelectTrigger>
                                               <SelectContent>
-                                                <SelectItem value="Left">Left</SelectItem>
-                                                <SelectItem value="Right">Right</SelectItem>
+                                                <SelectItem value="Left">
+                                                  Left
+                                                </SelectItem>
+                                                <SelectItem value="Right">
+                                                  Right
+                                                </SelectItem>
                                               </SelectContent>
                                             </Select>
                                             <Input
                                               type="datetime-local"
-                                              value={newEventData?.timestamp ?
-                                                new Date(newEventData.timestamp).toISOString().slice(0, 16) :
-                                                new Date().toISOString().slice(0, 16)
+                                              value={
+                                                newEventData?.timestamp
+                                                  ? new Date(
+                                                    newEventData.timestamp,
+                                                  )
+                                                    .toISOString()
+                                                    .slice(0, 16)
+                                                  : new Date()
+                                                    .toISOString()
+                                                    .slice(0, 16)
                                               }
                                               onChange={(e) =>
-                                                setNewEventData(prev => prev ? { ...prev, timestamp: new Date(e.target.value).toISOString() } : null)
+                                                setNewEventData((prev) =>
+                                                  prev
+                                                    ? {
+                                                      ...prev,
+                                                      timestamp: new Date(
+                                                        e.target.value,
+                                                      ).toISOString(),
+                                                    }
+                                                    : null,
+                                                )
                                               }
                                               className="flex-1"
                                             />
                                             <Button
                                               size="sm"
                                               variant="ghost"
-                                              onClick={() => session.id && saveNewEvent(session.id)}
+                                              onClick={() =>
+                                                session.id &&
+                                                saveNewEvent(session.id)
+                                              }
                                             >
                                               <Save className="h-4 w-4" />
                                             </Button>
@@ -675,7 +1073,9 @@ function ReportPage() {
                                           <Button
                                             size="sm"
                                             variant="ghost"
-                                            onClick={() => startAddingEvent(sessionId)}
+                                            onClick={() =>
+                                              startAddingEvent(sessionId)
+                                            }
                                             className="w-full justify-start text-muted-foreground hover:text-foreground"
                                           >
                                             <Plus className="h-3 w-3 mr-2" />
