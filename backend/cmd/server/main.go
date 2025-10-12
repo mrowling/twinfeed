@@ -54,6 +54,10 @@ func main() {
 		// Feed routes
 		v1.POST("/sessions", handlers.CreateFeedSession) // New endpoint for creating sessions
 		v1.POST("/events", handlers.AddFeedEvent)        // New endpoint for adding events
+		v1.PUT("/sessions/:id", handlers.UpdateFeedSession) // Update session
+		v1.DELETE("/sessions/:id", handlers.DeleteFeedSession) // Delete session
+		v1.PUT("/events/:id", handlers.UpdateFeedEvent) // Update event
+		v1.DELETE("/events/:id", handlers.DeleteFeedEvent) // Delete event
 		v1.GET("/feeds", handlers.GetFeeds)
 		v1.DELETE("/feeds", handlers.DeleteAllFeeds)
 

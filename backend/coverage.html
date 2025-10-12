@@ -59,7 +59,7 @@
 				
 				<option value="file1">twinfeed-backend/internal/database/db.go (83.3%)</option>
 				
-				<option value="file2">twinfeed-backend/internal/handlers/feed.go (68.1%)</option>
+				<option value="file2">twinfeed-backend/internal/handlers/feed.go (62.3%)</option>
 				
 				<option value="file3">twinfeed-backend/internal/handlers/settings.go (71.9%)</option>
 				
@@ -144,6 +144,10 @@ func main() <span class="cov0" title="0">{
                 // Feed routes
                 v1.POST("/sessions", handlers.CreateFeedSession) // New endpoint for creating sessions
                 v1.POST("/events", handlers.AddFeedEvent)        // New endpoint for adding events
+                v1.PUT("/sessions/:id", handlers.UpdateFeedSession) // Update session
+                v1.DELETE("/sessions/:id", handlers.DeleteFeedSession) // Delete session
+                v1.PUT("/events/:id", handlers.UpdateFeedEvent) // Update event
+                v1.DELETE("/events/:id", handlers.DeleteFeedEvent) // Delete event
                 v1.GET("/feeds", handlers.GetFeeds)
                 v1.DELETE("/feeds", handlers.DeleteAllFeeds)
 
@@ -463,7 +467,158 @@ func DeleteAllFeeds(c *gin.Context) <span class="cov5" title="2">{
         c.JSON(http.StatusOK, response)</span>
 }
 
-// HealthCheck returns the health status of the API
+// UpdateFeedSessionRequest represents the request body for updating a feed session
+type UpdateFeedSessionRequest struct {
+        Twin string `json:"twin" binding:"required,oneof=A B"`
+}
+
+// UpdateFeedEventRequest represents the request body for updating a feed event
+type UpdateFeedEventRequest struct {
+        EventType string    `json:"event_type" binding:"required,oneof=start pause end side_change"`
+        Timestamp time.Time `json:"timestamp" binding:"required"`
+        Side      string    `json:"side" binding:"required,oneof=Left Right"`
+}
+
+// UpdateFeedSession updates an existing feeding session
+func UpdateFeedSession(c *gin.Context) <span class="cov5" title="2">{
+        sessionIDStr := c.Param("id")
+        sessionID, err := strconv.ParseUint(sessionIDStr, 10, 32)
+        if err != nil </span><span class="cov0" title="0">{
+                c.JSON(http.StatusBadRequest, gin.H{"error": "invalid session ID"})
+                return
+        }</span>
+
+        <span class="cov5" title="2">var req UpdateFeedSessionRequest
+        if err := c.ShouldBindJSON(&amp;req); err != nil </span><span class="cov0" title="0">{
+                c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+                return
+        }</span>
+
+        <span class="cov5" title="2">var session models.FeedSession
+        if err := database.DB.First(&amp;session, sessionID).Error; err != nil </span><span class="cov1" title="1">{
+                if err == gorm.ErrRecordNotFound </span><span class="cov1" title="1">{
+                        c.JSON(http.StatusNotFound, gin.H{"error": "session not found"})
+                        return
+                }</span>
+                <span class="cov0" title="0">log.Printf("Error finding session: %v", err)
+                c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to find session"})
+                return</span>
+        }
+
+        // Update the session
+        <span class="cov1" title="1">session.Twin = req.Twin
+        session.UpdatedAt = time.Now()
+
+        if err := database.DB.Save(&amp;session).Error; err != nil </span><span class="cov0" title="0">{
+                log.Printf("Error updating session: %v", err)
+                c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update session"})
+                return
+        }</span>
+
+        <span class="cov1" title="1">c.JSON(http.StatusOK, session)</span>
+}
+
+// UpdateFeedEvent updates an existing feed event
+func UpdateFeedEvent(c *gin.Context) <span class="cov5" title="2">{
+        eventIDStr := c.Param("id")
+        eventID, err := strconv.ParseUint(eventIDStr, 10, 32)
+        if err != nil </span><span class="cov0" title="0">{
+                c.JSON(http.StatusBadRequest, gin.H{"error": "invalid event ID"})
+                return
+        }</span>
+
+        <span class="cov5" title="2">var req UpdateFeedEventRequest
+        if err := c.ShouldBindJSON(&amp;req); err != nil </span><span class="cov0" title="0">{
+                c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+                return
+        }</span>
+
+        <span class="cov5" title="2">var event models.FeedEvent
+        if err := database.DB.First(&amp;event, eventID).Error; err != nil </span><span class="cov1" title="1">{
+                if err == gorm.ErrRecordNotFound </span><span class="cov1" title="1">{
+                        c.JSON(http.StatusNotFound, gin.H{"error": "event not found"})
+                        return
+                }</span>
+                <span class="cov0" title="0">log.Printf("Error finding event: %v", err)
+                c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to find event"})
+                return</span>
+        }
+
+        // Update the event
+        <span class="cov1" title="1">event.EventType = req.EventType
+        event.Timestamp = req.Timestamp
+        event.Side = req.Side
+
+        if err := database.DB.Save(&amp;event).Error; err != nil </span><span class="cov0" title="0">{
+                log.Printf("Error updating event: %v", err)
+                c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update event"})
+                return
+        }</span>
+
+        <span class="cov1" title="1">c.JSON(http.StatusOK, event)</span>
+}
+
+// DeleteFeedSession deletes a specific feeding session
+func DeleteFeedSession(c *gin.Context) <span class="cov5" title="2">{
+        sessionIDStr := c.Param("id")
+        sessionID, err := strconv.ParseUint(sessionIDStr, 10, 32)
+        if err != nil </span><span class="cov0" title="0">{
+                c.JSON(http.StatusBadRequest, gin.H{"error": "invalid session ID"})
+                return
+        }</span>
+
+        <span class="cov5" title="2">var session models.FeedSession
+        if err := database.DB.First(&amp;session, sessionID).Error; err != nil </span><span class="cov1" title="1">{
+                if err == gorm.ErrRecordNotFound </span><span class="cov1" title="1">{
+                        c.JSON(http.StatusNotFound, gin.H{"error": "session not found"})
+                        return
+                }</span>
+                <span class="cov0" title="0">log.Printf("Error finding session: %v", err)
+                c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to find session"})
+                return</span>
+        }
+
+        // Delete the session (this will cascade delete events due to foreign key)
+        <span class="cov1" title="1">if err := database.DB.Delete(&amp;session).Error; err != nil </span><span class="cov0" title="0">{
+                log.Printf("Error deleting session: %v", err)
+                c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete session"})
+                return
+        }</span>
+
+        <span class="cov1" title="1">c.JSON(http.StatusOK, gin.H{"message": "session deleted successfully"})</span>
+}
+
+// DeleteFeedEvent deletes a specific feed event
+func DeleteFeedEvent(c *gin.Context) <span class="cov5" title="2">{
+        eventIDStr := c.Param("id")
+        eventID, err := strconv.ParseUint(eventIDStr, 10, 32)
+        if err != nil </span><span class="cov0" title="0">{
+                c.JSON(http.StatusBadRequest, gin.H{"error": "invalid event ID"})
+                return
+        }</span>
+
+        <span class="cov5" title="2">var event models.FeedEvent
+        if err := database.DB.First(&amp;event, eventID).Error; err != nil </span><span class="cov1" title="1">{
+                if err == gorm.ErrRecordNotFound </span><span class="cov1" title="1">{
+                        c.JSON(http.StatusNotFound, gin.H{"error": "event not found"})
+                        return
+                }</span>
+                <span class="cov0" title="0">log.Printf("Error finding event: %v", err)
+                c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to find event"})
+                return</span>
+        }
+
+        // Delete the event
+        <span class="cov1" title="1">if err := database.DB.Delete(&amp;event).Error; err != nil </span><span class="cov0" title="0">{
+                log.Printf("Error deleting event: %v", err)
+                c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete event"})
+                return
+        }</span>
+
+        <span class="cov1" title="1">c.JSON(http.StatusOK, gin.H{"message": "event deleted successfully"})</span>
+}
+
+// HealthCheck provides a health check endpoint
 func HealthCheck(c *gin.Context) <span class="cov1" title="1">{
         db := database.GetDB()
 
