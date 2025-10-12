@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useApiSync } from "@/hooks/useApiSync";
+import { useSettings } from "@/hooks/useSettings";
 import {
   AlertTriangle,
   Loader2,
@@ -25,6 +26,7 @@ import { Input } from "@/components/ui/input";
 
 function ReportPage() {
   const { sessions, clearAllSessions, isLoading, error, retry, refreshSessions } = useApiSync();
+  const { settings } = useSettings();
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(
     new Set(),
   );
@@ -43,9 +45,9 @@ function ReportPage() {
     timestamp: string;
   } | null>(null);
 
-  // Get custom twin names from localStorage
-  const twinAName = localStorage.getItem("twinAName") || "Twin A";
-  const twinBName = localStorage.getItem("twinBName") || "Twin B";
+  // Get custom twin names from settings (which syncs with localStorage)
+  const twinAName = settings?.twin_a_name || localStorage.getItem("twinAName") || "Twin A";
+  const twinBName = settings?.twin_b_name || localStorage.getItem("twinBName") || "Twin B";
 
   const toggleSessionExpansion = (sessionId: string) => {
     setExpandedSessions((prev) => {
