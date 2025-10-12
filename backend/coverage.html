@@ -59,7 +59,7 @@
 				
 				<option value="file1">twinfeed-backend/internal/database/db.go (83.3%)</option>
 				
-				<option value="file2">twinfeed-backend/internal/handlers/feed.go (62.3%)</option>
+				<option value="file2">twinfeed-backend/internal/handlers/feed.go (62.2%)</option>
 				
 				<option value="file3">twinfeed-backend/internal/handlers/settings.go (71.9%)</option>
 				
@@ -299,7 +299,10 @@ import (
 
 // CreateFeedSessionRequest represents the request body for creating a feed session
 type CreateFeedSessionRequest struct {
-        Twin string `json:"twin" binding:"required,oneof=A B"`
+        Twin         string   `json:"twin" binding:"required,oneof=A B"`
+        IsBottle     bool     `json:"is_bottle"`
+        BottleAmount *float64 `json:"bottle_amount,omitempty"`
+        BottleType   *string  `json:"bottle_type,omitempty"`
 }
 
 // AddFeedEventRequest represents the request body for adding an event to a session
@@ -323,17 +326,38 @@ type DeleteResponse struct {
 }
 
 // CreateFeedSession creates a new feeding session
-func CreateFeedSession(c *gin.Context) <span class="cov5" title="2">{
+func CreateFeedSession(c *gin.Context) <span class="cov10" title="4">{
         var req CreateFeedSessionRequest
         if err := c.ShouldBindJSON(&amp;req); err != nil </span><span class="cov1" title="1">{
                 c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
                 return
         }</span>
 
+        // Validate bottle fields
+        <span class="cov8" title="3">if req.IsBottle </span><span class="cov5" title="2">{
+                if req.BottleAmount == nil || *req.BottleAmount &lt;= 0 </span><span class="cov1" title="1">{
+                        c.JSON(http.StatusBadRequest, gin.H{"error": "Bottle amount is required and must be positive for bottle feeds"})
+                        return
+                }</span>
+                <span class="cov1" title="1">if req.BottleType == nil || (*req.BottleType != "breastmilk" &amp;&amp; *req.BottleType != "formula") </span><span class="cov0" title="0">{
+                        c.JSON(http.StatusBadRequest, gin.H{"error": "Bottle type must be 'breastmilk' or 'formula' for bottle feeds"})
+                        return
+                }</span>
+        } else<span class="cov1" title="1"> {
+                // For timer feeds, bottle fields should not be set
+                if req.BottleAmount != nil || req.BottleType != nil </span><span class="cov0" title="0">{
+                        c.JSON(http.StatusBadRequest, gin.H{"error": "Bottle fields should not be set for timer feeds"})
+                        return
+                }</span>
+        }
+
         // Create new feed session
-        <span class="cov1" title="1">feed := models.FeedSession{
-                Twin:   req.Twin,
-                Events: []models.FeedEvent{}, // Initialize empty events slice
+        <span class="cov5" title="2">feed := models.FeedSession{
+                Twin:         req.Twin,
+                IsBottle:     req.IsBottle,
+                BottleAmount: req.BottleAmount,
+                BottleType:   req.BottleType,
+                Events:       []models.FeedEvent{}, // Initialize empty events slice
         }
 
         db := database.GetDB()
@@ -342,7 +366,7 @@ func CreateFeedSession(c *gin.Context) <span class="cov5" title="2">{
                 return
         }</span>
 
-        <span class="cov1" title="1">c.JSON(http.StatusCreated, feed)</span>
+        <span class="cov5" title="2">c.JSON(http.StatusCreated, feed)</span>
 }
 
 // AddFeedEvent adds an event (start/pause/end) to an existing session
@@ -815,11 +839,14 @@ import (
 )
 
 type FeedSession struct {
-        ID        uint        `json:"id" gorm:"primaryKey"`
-        Twin      string      `json:"twin" gorm:"not null" validate:"required,oneof=A B"`
-        Events    []FeedEvent `json:"events" gorm:"foreignKey:FeedSessionID;constraint:OnDelete:CASCADE"`
-        CreatedAt time.Time   `json:"created_at" gorm:"autoCreateTime"`
-        UpdatedAt time.Time   `json:"updated_at" gorm:"autoUpdateTime"`
+        ID          uint        `json:"id" gorm:"primaryKey"`
+        Twin        string      `json:"twin" gorm:"not null" validate:"required,oneof=A B"`
+        IsBottle    bool        `json:"is_bottle" gorm:"default:false"`
+        BottleAmount *float64   `json:"bottle_amount,omitempty" gorm:"type:decimal(10,2)"`
+        BottleType  *string     `json:"bottle_type,omitempty" gorm:"type:varchar(20)" validate:"omitempty,oneof=breastmilk formula"`
+        Events      []FeedEvent `json:"events" gorm:"foreignKey:FeedSessionID;constraint:OnDelete:CASCADE"`
+        CreatedAt   time.Time   `json:"created_at" gorm:"autoCreateTime"`
+        UpdatedAt   time.Time   `json:"updated_at" gorm:"autoUpdateTime"`
 }
 
 type FeedEvent struct {

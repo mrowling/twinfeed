@@ -5,11 +5,14 @@ import (
 )
 
 type FeedSession struct {
-	ID        uint        `json:"id" gorm:"primaryKey"`
-	Twin      string      `json:"twin" gorm:"not null" validate:"required,oneof=A B"`
-	Events    []FeedEvent `json:"events" gorm:"foreignKey:FeedSessionID;constraint:OnDelete:CASCADE"`
-	CreatedAt time.Time   `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt time.Time   `json:"updated_at" gorm:"autoUpdateTime"`
+	ID          uint        `json:"id" gorm:"primaryKey"`
+	Twin        string      `json:"twin" gorm:"not null" validate:"required,oneof=A B"`
+	IsBottle    bool        `json:"is_bottle" gorm:"default:false"`
+	BottleAmount *float64   `json:"bottle_amount,omitempty" gorm:"type:decimal(10,2)"`
+	BottleType  *string     `json:"bottle_type,omitempty" gorm:"type:varchar(20)" validate:"omitempty,oneof=breastmilk formula"`
+	Events      []FeedEvent `json:"events" gorm:"foreignKey:FeedSessionID;constraint:OnDelete:CASCADE"`
+	CreatedAt   time.Time   `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt   time.Time   `json:"updated_at" gorm:"autoUpdateTime"`
 }
 
 type FeedEvent struct {

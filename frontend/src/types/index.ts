@@ -10,6 +10,9 @@ export interface FeedEvent {
 export interface FeedSession {
   id?: number;
   twin: "A" | "B";
+  is_bottle?: boolean;
+  bottle_amount?: number;
+  bottle_type?: "breastmilk" | "formula";
   events: FeedEvent[];
   created_at?: string; // ISO string
   updated_at?: string; // ISO string
