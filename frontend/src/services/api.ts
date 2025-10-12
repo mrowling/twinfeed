@@ -17,9 +17,23 @@ export interface FeedsResponse {
   total: number;
 }
 
+export interface UpdateSessionRequest {
+  twin: "A" | "B";
+}
+
+export interface UpdateEventRequest {
+  event_type: "start" | "pause" | "end" | "side_change";
+  side: "Left" | "Right";
+  timestamp: string;
+}
+
 export interface DeleteResponse {
   message: string;
   deleted_count: number;
+}
+
+export interface SimpleDeleteResponse {
+  message: string;
 }
 
 export interface CreateSessionRequest {
@@ -59,6 +73,36 @@ export const feedApi = {
   // Delete all feeding sessions
   deleteAllFeeds: async (): Promise<DeleteResponse> => {
     const response = await api.delete<DeleteResponse>("/feeds");
+    return response.data;
+  },
+
+  // Update a feeding session
+  updateSession: async (
+    id: number,
+    request: UpdateSessionRequest,
+  ): Promise<FeedSession> => {
+    const response = await api.put<FeedSession>(`/sessions/${id}`, request);
+    return response.data;
+  },
+
+  // Delete a feeding session
+  deleteSession: async (id: number): Promise<SimpleDeleteResponse> => {
+    const response = await api.delete<SimpleDeleteResponse>(`/sessions/${id}`);
+    return response.data;
+  },
+
+  // Update a feed event
+  updateEvent: async (
+    id: number,
+    request: UpdateEventRequest,
+  ): Promise<FeedEvent> => {
+    const response = await api.put<FeedEvent>(`/events/${id}`, request);
+    return response.data;
+  },
+
+  // Delete a feed event
+  deleteEvent: async (id: number): Promise<SimpleDeleteResponse> => {
+    const response = await api.delete<SimpleDeleteResponse>(`/events/${id}`);
     return response.data;
   },
 };

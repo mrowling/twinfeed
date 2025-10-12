@@ -50,6 +50,7 @@ export function useApiSync() {
     error,
     clearAllSessions,
     loadSessions,
+    refreshSessions: loadSessions,
     retry,
   };
 }

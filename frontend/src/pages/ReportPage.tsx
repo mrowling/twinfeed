@@ -9,17 +9,39 @@ import {
   Baby,
   ChevronDown,
   ChevronRight,
+  Edit,
+  Trash2,
+  Save,
+  X,
+  Plus,
 } from "lucide-react";
 import { getTwinColorClasses } from "@/lib/twinColors";
-import type { FeedSession } from "@/types";
+import type { FeedSession, FeedEvent } from "@/types";
 import { calculateDuration } from "@/types";
 import { useState } from "react";
+import { feedApi } from "@/services/api";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 
 function ReportPage() {
-  const { sessions, clearAllSessions, isLoading, error, retry } = useApiSync();
+  const { sessions, clearAllSessions, isLoading, error, retry, refreshSessions } = useApiSync();
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(
     new Set(),
   );
+  const [editingSession, setEditingSession] = useState<string | null>(null);
+  const [editingEvent, setEditingEvent] = useState<string | null>(null);
+  const [addingEvent, setAddingEvent] = useState<string | null>(null);
+  const [sessionEditData, setSessionEditData] = useState<{ twin: "A" | "B" } | null>(null);
+  const [eventEditData, setEventEditData] = useState<{
+    event_type: "start" | "pause" | "end" | "side_change";
+    side: "Left" | "Right";
+    timestamp: string;
+  } | null>(null);
+  const [newEventData, setNewEventData] = useState<{
+    event_type: "start" | "pause" | "end" | "side_change";
+    side: "Left" | "Right";
+    timestamp: string;
+  } | null>(null);
 
   // Get custom twin names from localStorage
   const twinAName = localStorage.getItem("twinAName") || "Twin A";
@@ -35,6 +57,107 @@ function ReportPage() {
       }
       return newSet;
     });
+  };
+
+  const startEditingSession = (session: FeedSession) => {
+    setEditingSession(session.id?.toString() || null);
+    setSessionEditData({ twin: session.twin });
+  };
+
+  const cancelEditingSession = () => {
+    setEditingSession(null);
+    setSessionEditData(null);
+  };
+
+  const saveSessionEdit = async (sessionId: number) => {
+    if (!sessionEditData) return;
+
+    try {
+      await feedApi.updateSession(sessionId, sessionEditData);
+      await refreshSessions();
+      cancelEditingSession();
+    } catch (error) {
+      alert("Failed to update session. Please try again.");
+    }
+  };
+
+  const deleteSession = async (sessionId: number) => {
+    if (!window.confirm("Are you sure you want to delete this session?")) return;
+
+    try {
+      await feedApi.deleteSession(sessionId);
+      await refreshSessions();
+    } catch (error) {
+      alert("Failed to delete session. Please try again.");
+    }
+  };
+
+  const startEditingEvent = (event: FeedEvent) => {
+    setEditingEvent(`${event.feed_session_id}-${event.id}`);
+    setEventEditData({
+      event_type: event.event_type,
+      side: event.side,
+      timestamp: event.timestamp,
+    });
+  };
+
+  const cancelEditingEvent = () => {
+    setEditingEvent(null);
+    setEventEditData(null);
+  };
+
+  const saveEventEdit = async (eventId: number) => {
+    if (!eventEditData) return;
+
+    try {
+      await feedApi.updateEvent(eventId, eventEditData);
+      await refreshSessions();
+      cancelEditingEvent();
+    } catch (error) {
+      alert("Failed to update event. Please try again.");
+    }
+  };
+
+  const deleteEvent = async (eventId: number) => {
+    if (!window.confirm("Are you sure you want to delete this event?")) return;
+
+    try {
+      await feedApi.deleteEvent(eventId);
+      await refreshSessions();
+    } catch (error) {
+      alert("Failed to delete event. Please try again.");
+    }
+  };
+
+  const startAddingEvent = (sessionId: string) => {
+    setAddingEvent(sessionId);
+    setNewEventData({
+      event_type: "start",
+      side: "Left",
+      timestamp: new Date().toISOString(),
+    });
+  };
+
+  const cancelAddingEvent = () => {
+    setAddingEvent(null);
+    setNewEventData(null);
+  };
+
+  const saveNewEvent = async (sessionId: number) => {
+    if (!newEventData) return;
+
+    try {
+      await feedApi.addEvent({
+        session_id: sessionId,
+        event_type: newEventData.event_type,
+        side: newEventData.side,
+        timestamp: newEventData.timestamp,
+      });
+      await refreshSessions();
+      cancelAddingEvent();
+    } catch (error) {
+      alert("Failed to add event. Please try again.");
+    }
   };
 
   // Group sessions by date
@@ -234,26 +357,67 @@ function ReportPage() {
                                   className={`w-3 h-3 rounded-full ${getTwinColorClasses(session.twin).bg}`}
                                 />
                                 <div>
-                                  <div className="font-medium text-foreground">
-                                    {session.twin === "A"
-                                      ? twinAName
-                                      : twinBName}
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <Badge
-                                      variant="outline"
-                                      className="text-xs"
-                                    >
-                                      {session.events[0]?.side || "Unknown"}
-                                    </Badge>
-                                    <span className="text-sm text-muted-foreground">
-                                      {session.events[0]
-                                        ? formatTime(
-                                            session.events[0].timestamp,
-                                          )
-                                        : "Unknown"}
-                                    </span>
-                                  </div>
+                                  {editingSession === session.id?.toString() ? (
+                                    <div className="flex items-center space-x-2" onClick={(e) => e.stopPropagation()}>
+                                      <Select
+                                        value={sessionEditData?.twin || session.twin}
+                                        onValueChange={(value: "A" | "B") =>
+                                          setSessionEditData(prev => prev ? { ...prev, twin: value } : null)
+                                        }
+                                      >
+                                        <SelectTrigger className="w-32">
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="A">{twinAName}</SelectItem>
+                                          <SelectItem value="B">{twinBName}</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          session.id && saveSessionEdit(session.id);
+                                        }}
+                                      >
+                                        <Save className="h-4 w-4" />
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          cancelEditingSession();
+                                        }}
+                                      >
+                                        <X className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <div className="font-medium text-foreground">
+                                        {session.twin === "A"
+                                          ? twinAName
+                                          : twinBName}
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <Badge
+                                          variant="outline"
+                                          className="text-xs"
+                                        >
+                                          {session.events[0]?.side || "Unknown"}
+                                        </Badge>
+                                        <span className="text-sm text-muted-foreground">
+                                          {session.events[0]
+                                            ? formatTime(
+                                                session.events[0].timestamp,
+                                              )
+                                            : "Unknown"}
+                                        </span>
+                                      </div>
+                                    </>
+                                  )}
                                 </div>
                               </div>
                               <div className="flex items-center space-x-2">
@@ -264,6 +428,30 @@ function ReportPage() {
                                     )}
                                   </div>
                                 </div>
+                                {editingSession !== session.id?.toString() && (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        startEditingSession(session);
+                                      }}
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        session.id && deleteSession(session.id);
+                                      }}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </>
+                                )}
                                 {isExpanded ? (
                                   <ChevronDown className="h-4 w-4 text-muted-foreground" />
                                 ) : (
@@ -278,33 +466,184 @@ function ReportPage() {
                                     Events ({session.events.length})
                                   </h5>
                                   <div className="space-y-1">
-                                    {session.events.map((event, eventIndex) => (
-                                      <div
-                                        key={eventIndex}
-                                        className="flex items-center justify-between text-sm py-1 px-2 bg-background rounded"
-                                      >
-                                        <div className="flex items-center space-x-2">
-                                          <Badge
-                                            variant={
-                                              event.event_type === "start"
-                                                ? "default"
-                                                : event.event_type === "end"
-                                                  ? "secondary"
-                                                  : "outline"
-                                            }
-                                            className="text-xs"
-                                          >
-                                            {event.event_type}
-                                          </Badge>
-                                          <span className="text-muted-foreground">
-                                            {event.side}
-                                          </span>
+                                    {session.events.map((event, eventIndex) => {
+                                      const eventKey = `${event.feed_session_id}-${event.id}`;
+                                      const isEditing = editingEvent === eventKey;
+                                      return (
+                                        <div
+                                          key={eventIndex}
+                                          className="flex items-center justify-between text-sm py-1 px-2 bg-background rounded"
+                                        >
+                                          {isEditing ? (
+                                            <div className="flex items-center space-x-2 flex-1">
+                                              <Select
+                                                value={eventEditData?.event_type || event.event_type}
+                                                onValueChange={(value: "start" | "pause" | "end" | "side_change") =>
+                                                  setEventEditData(prev => prev ? { ...prev, event_type: value } : null)
+                                                }
+                                              >
+                                                <SelectTrigger className="w-24">
+                                                  <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                  <SelectItem value="start">Start</SelectItem>
+                                                  <SelectItem value="pause">Pause</SelectItem>
+                                                  <SelectItem value="end">End</SelectItem>
+                                                  <SelectItem value="side_change">Side Change</SelectItem>
+                                                </SelectContent>
+                                              </Select>
+                                              <Select
+                                                value={eventEditData?.side || event.side}
+                                                onValueChange={(value: "Left" | "Right") =>
+                                                  setEventEditData(prev => prev ? { ...prev, side: value } : null)
+                                                }
+                                              >
+                                                <SelectTrigger className="w-20">
+                                                  <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                  <SelectItem value="Left">Left</SelectItem>
+                                                  <SelectItem value="Right">Right</SelectItem>
+                                                </SelectContent>
+                                              </Select>
+                                              <Input
+                                                type="datetime-local"
+                                                value={eventEditData?.timestamp ? 
+                                                  new Date(eventEditData.timestamp).toISOString().slice(0, 16) : 
+                                                  new Date(event.timestamp).toISOString().slice(0, 16)
+                                                }
+                                                onChange={(e) =>
+                                                  setEventEditData(prev => prev ? { ...prev, timestamp: new Date(e.target.value).toISOString() } : null)
+                                                }
+                                                className="flex-1"
+                                              />
+                                              <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                onClick={() => event.id && saveEventEdit(event.id)}
+                                              >
+                                                <Save className="h-4 w-4" />
+                                              </Button>
+                                              <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                onClick={cancelEditingEvent}
+                                              >
+                                                <X className="h-4 w-4" />
+                                              </Button>
+                                            </div>
+                                          ) : (
+                                            <>
+                                              <div className="flex items-center space-x-2">
+                                                <Badge
+                                                  variant={
+                                                    event.event_type === "start"
+                                                      ? "default"
+                                                      : event.event_type === "end"
+                                                        ? "secondary"
+                                                        : "outline"
+                                                  }
+                                                  className="text-xs"
+                                                >
+                                                  {event.event_type}
+                                                </Badge>
+                                                <span className="text-muted-foreground">
+                                                  {event.side}
+                                                </span>
+                                              </div>
+                                              <div className="flex items-center space-x-2">
+                                                <span className="text-muted-foreground">
+                                                  {formatTime(event.timestamp)}
+                                                </span>
+                                                <Button
+                                                  size="sm"
+                                                  variant="ghost"
+                                                  onClick={() => startEditingEvent(event)}
+                                                >
+                                                  <Edit className="h-3 w-3" />
+                                                </Button>
+                                                <Button
+                                                  size="sm"
+                                                  variant="ghost"
+                                                  onClick={() => event.id && deleteEvent(event.id)}
+                                                >
+                                                  <Trash2 className="h-3 w-3" />
+                                                </Button>
+                                              </div>
+                                            </>
+                                          )}
                                         </div>
-                                        <span className="text-muted-foreground">
-                                          {formatTime(event.timestamp)}
-                                        </span>
+                                      );
+                                    })}
+                                    {addingEvent === sessionId ? (
+                                      <div className="flex items-center space-x-2 py-1 px-2 bg-muted/50 rounded">
+                                        <Select
+                                          value={newEventData?.event_type || "start"}
+                                          onValueChange={(value: "start" | "pause" | "end" | "side_change") =>
+                                            setNewEventData(prev => prev ? { ...prev, event_type: value } : null)
+                                          }
+                                        >
+                                          <SelectTrigger className="w-24">
+                                            <SelectValue />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            <SelectItem value="start">Start</SelectItem>
+                                            <SelectItem value="pause">Pause</SelectItem>
+                                            <SelectItem value="end">End</SelectItem>
+                                            <SelectItem value="side_change">Side Change</SelectItem>
+                                          </SelectContent>
+                                        </Select>
+                                        <Select
+                                          value={newEventData?.side || "Left"}
+                                          onValueChange={(value: "Left" | "Right") =>
+                                            setNewEventData(prev => prev ? { ...prev, side: value } : null)
+                                          }
+                                        >
+                                          <SelectTrigger className="w-20">
+                                            <SelectValue />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            <SelectItem value="Left">Left</SelectItem>
+                                            <SelectItem value="Right">Right</SelectItem>
+                                          </SelectContent>
+                                        </Select>
+                                        <Input
+                                          type="datetime-local"
+                                          value={newEventData?.timestamp ? 
+                                            new Date(newEventData.timestamp).toISOString().slice(0, 16) : 
+                                            new Date().toISOString().slice(0, 16)
+                                          }
+                                          onChange={(e) =>
+                                            setNewEventData(prev => prev ? { ...prev, timestamp: new Date(e.target.value).toISOString() } : null)
+                                          }
+                                          className="flex-1"
+                                        />
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          onClick={() => session.id && saveNewEvent(session.id)}
+                                        >
+                                          <Save className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          onClick={cancelAddingEvent}
+                                        >
+                                          <X className="h-4 w-4" />
+                                        </Button>
                                       </div>
-                                    ))}
+                                    ) : (
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => startAddingEvent(sessionId)}
+                                        className="w-full justify-start text-muted-foreground hover:text-foreground"
+                                      >
+                                        <Plus className="h-3 w-3 mr-2" />
+                                        Add Event
+                                      </Button>
+                                    )}
                                   </div>
                                 </div>
                               </div>

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 	"time"
 
@@ -27,9 +28,12 @@ func (suite *FeedHandlerTestSuite) SetupSuite() {
 	// Set Gin to test mode
 	gin.SetMode(gin.TestMode)
 
-	// Create in-memory SQLite database for testing
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	// Create in-memory SQLite database for testing with foreign keys enabled
+	db, err := gorm.Open(sqlite.Open(":memory:?_fk=1"), &gorm.Config{})
 	suite.Require().NoError(err)
+
+	// Enable foreign key constraints for SQLite
+	db.Exec("PRAGMA foreign_keys = ON")
 
 	// Auto-migrate the schema with new models
 	err = db.AutoMigrate(&models.FeedSession{}, &models.FeedEvent{}, &models.UserSettings{})
@@ -42,11 +46,20 @@ func (suite *FeedHandlerTestSuite) SetupSuite() {
 
 	// Setup router with all endpoints
 	suite.router = gin.New()
-	suite.router.POST("/sessions", CreateFeedSession) // New session endpoint
-	suite.router.POST("/events", AddFeedEvent)        // New event endpoint
-	suite.router.GET("/feeds", GetFeeds)
-	suite.router.DELETE("/feeds", DeleteAllFeeds)
-	suite.router.GET("/health", HealthCheck)
+	
+	// API v1 group
+	v1 := suite.router.Group("/api/v1")
+	{
+		v1.POST("/sessions", CreateFeedSession)
+		v1.POST("/events", AddFeedEvent)
+		v1.PUT("/sessions/:id", UpdateFeedSession)
+		v1.DELETE("/sessions/:id", DeleteFeedSession)
+		v1.PUT("/events/:id", UpdateFeedEvent)
+		v1.DELETE("/events/:id", DeleteFeedEvent)
+		v1.GET("/feeds", GetFeeds)
+		v1.DELETE("/feeds", DeleteAllFeeds)
+		v1.GET("/health", HealthCheck)
+	}
 }
 
 func (suite *FeedHandlerTestSuite) TearDownTest() {
@@ -64,7 +77,7 @@ func (suite *FeedHandlerTestSuite) TestCreateSessionSuccess() {
 	body, err := json.Marshal(sessionRequest)
 	suite.Require().NoError(err)
 
-	req := httptest.NewRequest("POST", "/sessions", bytes.NewBuffer(body))
+	req := httptest.NewRequest("POST", "/api/v1/sessions", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
@@ -100,7 +113,7 @@ func (suite *FeedHandlerTestSuite) TestAddEventSuccess() {
 	body, err := json.Marshal(eventRequest)
 	suite.Require().NoError(err)
 
-	req := httptest.NewRequest("POST", "/events", bytes.NewBuffer(body))
+	req := httptest.NewRequest("POST", "/api/v1/events", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
@@ -125,7 +138,7 @@ func (suite *FeedHandlerTestSuite) TestCreateSessionInvalidTwin() {
 	body, err := json.Marshal(sessionRequest)
 	suite.Require().NoError(err)
 
-	req := httptest.NewRequest("POST", "/sessions", bytes.NewBuffer(body))
+	req := httptest.NewRequest("POST", "/api/v1/sessions", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
@@ -145,7 +158,7 @@ func (suite *FeedHandlerTestSuite) TestAddEventInvalidSessionID() {
 	body, err := json.Marshal(eventRequest)
 	suite.Require().NoError(err)
 
-	req := httptest.NewRequest("POST", "/events", bytes.NewBuffer(body))
+	req := httptest.NewRequest("POST", "/api/v1/events", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
@@ -155,7 +168,7 @@ func (suite *FeedHandlerTestSuite) TestAddEventInvalidSessionID() {
 }
 
 func (suite *FeedHandlerTestSuite) TestGetFeedsEmpty() {
-	req := httptest.NewRequest("GET", "/feeds", nil)
+	req := httptest.NewRequest("GET", "/api/v1/feeds", nil)
 	w := httptest.NewRecorder()
 
 	suite.router.ServeHTTP(w, req)
@@ -202,7 +215,7 @@ func (suite *FeedHandlerTestSuite) TestGetFeedsWithData() {
 		suite.db.Create(&event)
 	}
 
-	req := httptest.NewRequest("GET", "/feeds", nil)
+	req := httptest.NewRequest("GET", "/api/v1/feeds", nil)
 	w := httptest.NewRecorder()
 
 	suite.router.ServeHTTP(w, req)
@@ -251,7 +264,7 @@ func (suite *FeedHandlerTestSuite) TestGetFeedsPagination() {
 	}
 
 	// Test with limit
-	req := httptest.NewRequest("GET", "/feeds?limit=2", nil)
+	req := httptest.NewRequest("GET", "/api/v1/feeds?limit=2", nil)
 	w := httptest.NewRecorder()
 
 	suite.router.ServeHTTP(w, req)
@@ -266,7 +279,7 @@ func (suite *FeedHandlerTestSuite) TestGetFeedsPagination() {
 	assert.Len(suite.T(), response.Feeds, 2)
 
 	// Test with offset
-	req = httptest.NewRequest("GET", "/feeds?limit=2&offset=2", nil)
+	req = httptest.NewRequest("GET", "/api/v1/feeds?limit=2&offset=2", nil)
 	w = httptest.NewRecorder()
 
 	suite.router.ServeHTTP(w, req)
@@ -281,7 +294,7 @@ func (suite *FeedHandlerTestSuite) TestGetFeedsPagination() {
 }
 
 func (suite *FeedHandlerTestSuite) TestDeleteAllFeedsEmpty() {
-	req := httptest.NewRequest("DELETE", "/feeds", nil)
+	req := httptest.NewRequest("DELETE", "/api/v1/feeds", nil)
 	w := httptest.NewRecorder()
 
 	suite.router.ServeHTTP(w, req)
@@ -314,7 +327,7 @@ func (suite *FeedHandlerTestSuite) TestDeleteAllFeedsWithData() {
 		suite.db.Create(&event)
 	}
 
-	req := httptest.NewRequest("DELETE", "/feeds", nil)
+	req := httptest.NewRequest("DELETE", "/api/v1/feeds", nil)
 	w := httptest.NewRecorder()
 
 	suite.router.ServeHTTP(w, req)
@@ -334,8 +347,222 @@ func (suite *FeedHandlerTestSuite) TestDeleteAllFeedsWithData() {
 	assert.Equal(suite.T(), int64(0), count)
 }
 
+func (suite *FeedHandlerTestSuite) TestUpdateFeedSessionSuccess() {
+	// Create a test session
+	session := models.FeedSession{
+		Twin: "A",
+	}
+	err := suite.db.Create(&session).Error
+	suite.Require().NoError(err)
+
+	// Update the session
+	updateRequest := UpdateFeedSessionRequest{
+		Twin: "B",
+	}
+
+	body, err := json.Marshal(updateRequest)
+	suite.Require().NoError(err)
+
+	req := httptest.NewRequest("PUT", "/api/v1/sessions/"+strconv.Itoa(int(session.ID)), bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	suite.router.ServeHTTP(w, req)
+
+	assert.Equal(suite.T(), http.StatusOK, w.Code)
+
+	var response models.FeedSession
+	err = json.Unmarshal(w.Body.Bytes(), &response)
+	suite.Require().NoError(err)
+
+	assert.Equal(suite.T(), "B", response.Twin)
+	assert.Equal(suite.T(), session.ID, response.ID)
+}
+
+func (suite *FeedHandlerTestSuite) TestUpdateFeedSessionNotFound() {
+	updateRequest := UpdateFeedSessionRequest{
+		Twin: "B",
+	}
+
+	body, err := json.Marshal(updateRequest)
+	suite.Require().NoError(err)
+
+	req := httptest.NewRequest("PUT", "/api/v1/sessions/999", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	suite.router.ServeHTTP(w, req)
+
+	assert.Equal(suite.T(), http.StatusNotFound, w.Code)
+}
+
+func (suite *FeedHandlerTestSuite) TestUpdateFeedEventSuccess() {
+	// Create a test session and event
+	session := models.FeedSession{
+		Twin: "A",
+	}
+	err := suite.db.Create(&session).Error
+	suite.Require().NoError(err)
+
+	event := models.FeedEvent{
+		FeedSessionID: session.ID,
+		EventType:     "start",
+		Side:          "Left",
+		Timestamp:     time.Now().UTC(),
+	}
+	err = suite.db.Create(&event).Error
+	suite.Require().NoError(err)
+
+	// Update the event
+	newTimestamp := time.Now().UTC().Add(1 * time.Hour)
+	updateRequest := UpdateFeedEventRequest{
+		EventType: "end",
+		Timestamp: newTimestamp,
+		Side:      "Right",
+	}
+
+	body, err := json.Marshal(updateRequest)
+	suite.Require().NoError(err)
+
+	req := httptest.NewRequest("PUT", "/api/v1/events/"+strconv.Itoa(int(event.ID)), bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	suite.router.ServeHTTP(w, req)
+
+	assert.Equal(suite.T(), http.StatusOK, w.Code)
+
+	var response models.FeedEvent
+	err = json.Unmarshal(w.Body.Bytes(), &response)
+	suite.Require().NoError(err)
+
+	assert.Equal(suite.T(), "end", response.EventType)
+	assert.Equal(suite.T(), "Right", response.Side)
+	assert.True(suite.T(), response.Timestamp.Equal(newTimestamp))
+}
+
+func (suite *FeedHandlerTestSuite) TestUpdateFeedEventNotFound() {
+	updateRequest := UpdateFeedEventRequest{
+		EventType: "end",
+		Timestamp: time.Now().UTC(),
+		Side:      "Right",
+	}
+
+	body, err := json.Marshal(updateRequest)
+	suite.Require().NoError(err)
+
+	req := httptest.NewRequest("PUT", "/api/v1/events/999", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	suite.router.ServeHTTP(w, req)
+
+	assert.Equal(suite.T(), http.StatusNotFound, w.Code)
+}
+
+func (suite *FeedHandlerTestSuite) TestDeleteFeedSessionSuccess() {
+	// Create a test session with events
+	session := models.FeedSession{
+		Twin: "A",
+	}
+	err := suite.db.Create(&session).Error
+	suite.Require().NoError(err)
+
+	// Add an event
+	event := models.FeedEvent{
+		FeedSessionID: session.ID,
+		EventType:     "start",
+		Side:          "Left",
+		Timestamp:     time.Now().UTC(),
+	}
+	err = suite.db.Create(&event).Error
+	suite.Require().NoError(err)
+
+	// Delete the session
+	req := httptest.NewRequest("DELETE", "/api/v1/sessions/"+strconv.Itoa(int(session.ID)), nil)
+	w := httptest.NewRecorder()
+
+	suite.router.ServeHTTP(w, req)
+
+	assert.Equal(suite.T(), http.StatusOK, w.Code)
+
+	var response map[string]string
+	err = json.Unmarshal(w.Body.Bytes(), &response)
+	suite.Require().NoError(err)
+
+	assert.Equal(suite.T(), "session deleted successfully", response["message"])
+
+	// Verify session and events are deleted
+	var deletedSession models.FeedSession
+	err = suite.db.First(&deletedSession, session.ID).Error
+	assert.Equal(suite.T(), gorm.ErrRecordNotFound, err)
+
+	// Check that events are also deleted
+	var eventCount int64
+	suite.db.Model(&models.FeedEvent{}).Where("feed_session_id = ?", session.ID).Count(&eventCount)
+	assert.Equal(suite.T(), int64(0), eventCount)
+}
+
+func (suite *FeedHandlerTestSuite) TestDeleteFeedSessionNotFound() {
+	req := httptest.NewRequest("DELETE", "/api/v1/sessions/999", nil)
+	w := httptest.NewRecorder()
+
+	suite.router.ServeHTTP(w, req)
+
+	assert.Equal(suite.T(), http.StatusNotFound, w.Code)
+}
+
+func (suite *FeedHandlerTestSuite) TestDeleteFeedEventSuccess() {
+	// Create a test session and event
+	session := models.FeedSession{
+		Twin: "A",
+	}
+	err := suite.db.Create(&session).Error
+	suite.Require().NoError(err)
+
+	event := models.FeedEvent{
+		FeedSessionID: session.ID,
+		EventType:     "start",
+		Side:          "Left",
+		Timestamp:     time.Now().UTC(),
+	}
+	err = suite.db.Create(&event).Error
+	suite.Require().NoError(err)
+
+	// Delete the event
+	req := httptest.NewRequest("DELETE", "/api/v1/events/"+strconv.Itoa(int(event.ID)), nil)
+	w := httptest.NewRecorder()
+
+	suite.router.ServeHTTP(w, req)
+
+	assert.Equal(suite.T(), http.StatusOK, w.Code)
+
+	var response map[string]string
+	err = json.Unmarshal(w.Body.Bytes(), &response)
+	suite.Require().NoError(err)
+
+	assert.Equal(suite.T(), "event deleted successfully", response["message"])
+
+	// Verify event is deleted but session remains
+	var count int64
+	suite.db.Model(&models.FeedEvent{}).Where("id = ?", event.ID).Count(&count)
+	assert.Equal(suite.T(), int64(0), count)
+
+	suite.db.Model(&models.FeedSession{}).Where("id = ?", session.ID).Count(&count)
+	assert.Equal(suite.T(), int64(1), count)
+}
+
+func (suite *FeedHandlerTestSuite) TestDeleteFeedEventNotFound() {
+	req := httptest.NewRequest("DELETE", "/api/v1/events/999", nil)
+	w := httptest.NewRecorder()
+
+	suite.router.ServeHTTP(w, req)
+
+	assert.Equal(suite.T(), http.StatusNotFound, w.Code)
+}
+
 func (suite *FeedHandlerTestSuite) TestHealthCheck() {
-	req := httptest.NewRequest("GET", "/health", nil)
+	req := httptest.NewRequest("GET", "/api/v1/health", nil)
 	w := httptest.NewRecorder()
 
 	suite.router.ServeHTTP(w, req)

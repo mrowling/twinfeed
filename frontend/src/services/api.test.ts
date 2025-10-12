@@ -9,6 +9,10 @@ vi.mock("./api", () => ({
     addEvent: vi.fn(),
     getFeeds: vi.fn(),
     deleteAllFeeds: vi.fn(),
+    updateSession: vi.fn(),
+    deleteSession: vi.fn(),
+    updateEvent: vi.fn(),
+    deleteEvent: vi.fn(),
   },
 }));
 
@@ -281,6 +285,126 @@ describe("feedApi", () => {
       );
 
       await expect(feedApi.deleteAllFeeds()).rejects.toThrow("Server error");
+    });
+  });
+
+  describe("updateSession", () => {
+    it("should update a feeding session", async () => {
+      const id = 123;
+      const request = { twin: "B" as const };
+      const mockSession: FeedSession = {
+        id: 123,
+        twin: "B",
+        events: [],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      vi.mocked(feedApi.updateSession).mockResolvedValue(mockSession);
+
+      const result = await feedApi.updateSession(id, request);
+
+      expect(feedApi.updateSession).toHaveBeenCalledWith(id, request);
+      expect(result).toEqual(mockSession);
+    });
+
+    it("should handle error when updating session", async () => {
+      const id = 123;
+      const request = { twin: "B" as const };
+      vi.mocked(feedApi.updateSession).mockRejectedValue(
+        new Error("Network error"),
+      );
+
+      await expect(feedApi.updateSession(id, request)).rejects.toThrow(
+        "Network error",
+      );
+    });
+  });
+
+  describe("deleteSession", () => {
+    it("should delete a feeding session", async () => {
+      const id = 123;
+      const mockResponse = { message: "session deleted successfully" };
+
+      vi.mocked(feedApi.deleteSession).mockResolvedValue(mockResponse);
+
+      const result = await feedApi.deleteSession(id);
+
+      expect(feedApi.deleteSession).toHaveBeenCalledWith(id);
+      expect(result).toEqual(mockResponse);
+    });
+
+    it("should handle error when deleting session", async () => {
+      const id = 123;
+      vi.mocked(feedApi.deleteSession).mockRejectedValue(
+        new Error("Server error"),
+      );
+
+      await expect(feedApi.deleteSession(id)).rejects.toThrow("Server error");
+    });
+  });
+
+  describe("updateEvent", () => {
+    it("should update a feed event", async () => {
+      const id = 456;
+      const request = {
+        event_type: "side_change" as const,
+        side: "Right" as const,
+        timestamp: new Date().toISOString(),
+      };
+      const mockEvent: FeedEvent = {
+        id: 456,
+        feed_session_id: 123,
+        event_type: "side_change",
+        side: "Right",
+        timestamp: request.timestamp,
+      };
+
+      vi.mocked(feedApi.updateEvent).mockResolvedValue(mockEvent);
+
+      const result = await feedApi.updateEvent(id, request);
+
+      expect(feedApi.updateEvent).toHaveBeenCalledWith(id, request);
+      expect(result).toEqual(mockEvent);
+    });
+
+    it("should handle error when updating event", async () => {
+      const id = 456;
+      const request = {
+        event_type: "side_change" as const,
+        side: "Right" as const,
+        timestamp: new Date().toISOString(),
+      };
+      vi.mocked(feedApi.updateEvent).mockRejectedValue(
+        new Error("Network error"),
+      );
+
+      await expect(feedApi.updateEvent(id, request)).rejects.toThrow(
+        "Network error",
+      );
+    });
+  });
+
+  describe("deleteEvent", () => {
+    it("should delete a feed event", async () => {
+      const id = 456;
+      const mockResponse = { message: "event deleted successfully" };
+
+      vi.mocked(feedApi.deleteEvent).mockResolvedValue(mockResponse);
+
+      const result = await feedApi.deleteEvent(id);
+
+      expect(feedApi.deleteEvent).toHaveBeenCalledWith(id);
+      expect(result).toEqual(mockResponse);
+    });
+
+    it("should handle error when deleting event", async () => {
+      const id = 456;
+      vi.mocked(feedApi.deleteEvent).mockRejectedValue(
+        new Error("Server error"),
+      );
+
+      await expect(feedApi.deleteEvent(id)).rejects.toThrow("Server error");
     });
   });
 });
