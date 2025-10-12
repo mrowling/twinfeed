@@ -39,7 +39,10 @@ tasks:
   dev:backend:
     desc: Run backend in development mode with hot reload
     dir: "{{.BACKEND_DIR}}"
-    cmd: go run cmd/server/main.go
+    cmds:
+      - echo "Killing any process on port 8080..."
+      - lsof -ti:8080 | xargs kill -9 2>/dev/null || true
+      - go run cmd/server/main.go
     env:
       GIN_MODE: debug
       DB_PATH: "./data/twinfeed.db"
@@ -48,7 +51,10 @@ tasks:
   dev:frontend:
     desc: Run frontend in development mode
     dir: "{{.FRONTEND_DIR}}"
-    cmd: pnpm run dev
+    cmds:
+      - echo "Killing any process on port 3000..."
+      - lsof -ti:3000 | xargs kill -9 2>/dev/null || true
+      - pnpm run dev
     env:
       VITE_APP_VERSION: "3.0.0"
 
