@@ -46,7 +46,7 @@ func (suite *FeedHandlerTestSuite) SetupSuite() {
 
 	// Setup router with all endpoints
 	suite.router = gin.New()
-	
+
 	// API v1 group
 	v1 := suite.router.Group("/api/v1")
 	{
@@ -71,7 +71,8 @@ func (suite *FeedHandlerTestSuite) TearDownTest() {
 
 func (suite *FeedHandlerTestSuite) TestCreateSessionSuccess() {
 	sessionRequest := CreateFeedSessionRequest{
-		Twin: "A",
+		Twin:     "A",
+		IsBottle: false,
 	}
 
 	body, err := json.Marshal(sessionRequest)
@@ -92,6 +93,59 @@ func (suite *FeedHandlerTestSuite) TestCreateSessionSuccess() {
 	assert.Equal(suite.T(), sessionRequest.Twin, response.Twin)
 	assert.Empty(suite.T(), response.Events) // New session should have no events
 	assert.NotZero(suite.T(), response.ID)
+}
+
+func (suite *FeedHandlerTestSuite) TestCreateBottleSessionSuccess() {
+	bottleRequest := CreateFeedSessionRequest{
+		Twin:         "A",
+		IsBottle:     true,
+		BottleAmount: &[]float64{120.0}[0], // 120 ml
+		BottleType:   &[]string{"breastmilk"}[0],
+	}
+
+	body, err := json.Marshal(bottleRequest)
+	suite.Require().NoError(err)
+
+	req := httptest.NewRequest("POST", "/api/v1/sessions", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	suite.router.ServeHTTP(w, req)
+
+	assert.Equal(suite.T(), http.StatusCreated, w.Code)
+
+	var response models.FeedSession
+	err = json.Unmarshal(w.Body.Bytes(), &response)
+	suite.Require().NoError(err)
+
+	assert.Equal(suite.T(), bottleRequest.Twin, response.Twin)
+	assert.True(suite.T(), response.IsBottle)
+	assert.NotNil(suite.T(), response.BottleAmount)
+	assert.Equal(suite.T(), 120.0, *response.BottleAmount)
+	assert.NotNil(suite.T(), response.BottleType)
+	assert.Equal(suite.T(), "breastmilk", *response.BottleType)
+	assert.Empty(suite.T(), response.Events) // Bottle sessions should have no events
+	assert.NotZero(suite.T(), response.ID)
+}
+
+func (suite *FeedHandlerTestSuite) TestCreateBottleSessionInvalidAmount() {
+	bottleRequest := CreateFeedSessionRequest{
+		Twin:         "A",
+		IsBottle:     true,
+		BottleAmount: &[]float64{0}[0], // Invalid amount
+		BottleType:   &[]string{"breastmilk"}[0],
+	}
+
+	body, err := json.Marshal(bottleRequest)
+	suite.Require().NoError(err)
+
+	req := httptest.NewRequest("POST", "/api/v1/sessions", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	suite.router.ServeHTTP(w, req)
+
+	assert.Equal(suite.T(), http.StatusBadRequest, w.Code)
 }
 
 func (suite *FeedHandlerTestSuite) TestAddEventSuccess() {

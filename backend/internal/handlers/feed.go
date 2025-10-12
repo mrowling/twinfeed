@@ -14,7 +14,10 @@ import (
 
 // CreateFeedSessionRequest represents the request body for creating a feed session
 type CreateFeedSessionRequest struct {
-	Twin string `json:"twin" binding:"required,oneof=A B"`
+	Twin         string   `json:"twin" binding:"required,oneof=A B"`
+	IsBottle     bool     `json:"is_bottle"`
+	BottleAmount *float64 `json:"bottle_amount,omitempty"`
+	BottleType   *string  `json:"bottle_type,omitempty"`
 }
 
 // AddFeedEventRequest represents the request body for adding an event to a session
@@ -45,10 +48,31 @@ func CreateFeedSession(c *gin.Context) {
 		return
 	}
 
+	// Validate bottle fields
+	if req.IsBottle {
+		if req.BottleAmount == nil || *req.BottleAmount <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Bottle amount is required and must be positive for bottle feeds"})
+			return
+		}
+		if req.BottleType == nil || (*req.BottleType != "breastmilk" && *req.BottleType != "formula") {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Bottle type must be 'breastmilk' or 'formula' for bottle feeds"})
+			return
+		}
+	} else {
+		// For timer feeds, bottle fields should not be set
+		if req.BottleAmount != nil || req.BottleType != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Bottle fields should not be set for timer feeds"})
+			return
+		}
+	}
+
 	// Create new feed session
 	feed := models.FeedSession{
-		Twin:   req.Twin,
-		Events: []models.FeedEvent{}, // Initialize empty events slice
+		Twin:         req.Twin,
+		IsBottle:     req.IsBottle,
+		BottleAmount: req.BottleAmount,
+		BottleType:   req.BottleType,
+		Events:       []models.FeedEvent{}, // Initialize empty events slice
 	}
 
 	db := database.GetDB()
@@ -184,7 +208,10 @@ func DeleteAllFeeds(c *gin.Context) {
 
 // UpdateFeedSessionRequest represents the request body for updating a feed session
 type UpdateFeedSessionRequest struct {
-	Twin string `json:"twin" binding:"required,oneof=A B"`
+	Twin         string     `json:"twin" binding:"required,oneof=A B"`
+	BottleAmount *float64   `json:"bottle_amount,omitempty"`
+	BottleType   *string    `json:"bottle_type,omitempty"`
+	CreatedAt    *time.Time `json:"created_at,omitempty"`
 }
 
 // UpdateFeedEventRequest represents the request body for updating a feed event
@@ -220,8 +247,28 @@ func UpdateFeedSession(c *gin.Context) {
 		return
 	}
 
+	// Validate bottle fields if provided
+	if req.BottleAmount != nil || req.BottleType != nil {
+		// If any bottle field is provided, validate all bottle fields
+		if req.BottleAmount == nil || *req.BottleAmount <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Bottle amount is required and must be positive when updating bottle fields"})
+			return
+		}
+		if req.BottleType == nil || (*req.BottleType != "breastmilk" && *req.BottleType != "formula") {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Bottle type must be 'breastmilk' or 'formula' when updating bottle fields"})
+			return
+		}
+		// Mark as bottle feed if bottle fields are provided
+		session.IsBottle = true
+		session.BottleAmount = req.BottleAmount
+		session.BottleType = req.BottleType
+	}
+
 	// Update the session
 	session.Twin = req.Twin
+	if req.CreatedAt != nil {
+		session.CreatedAt = *req.CreatedAt
+	}
 	session.UpdatedAt = time.Now()
 
 	if err := database.DB.Save(&session).Error; err != nil {

@@ -7,6 +7,7 @@ function Navigation() {
 
   const navItems = [
     { path: "/", label: "Timer" },
+    { path: "/bottle", label: "Bottle" },
     { path: "/report", label: "Report" },
     { path: "/settings", label: "Settings" },
   ];

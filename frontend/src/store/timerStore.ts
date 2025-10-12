@@ -200,6 +200,7 @@ export const useTimerStore = create<TimerStore>()(
           const localSession: FeedSession = {
             id: Date.now(), // Temporary ID until backend assigns real ID
             twin,
+            is_bottle: false,
             events: [],
             created_at: new Date().toISOString(),
           };

@@ -27,6 +27,7 @@ describe("feedApi", () => {
       const mockSession: FeedSession = {
         id: 123,
         twin: "A",
+        is_bottle: false,
         events: [],
         created_at: new Date().toISOString(),
       };
@@ -55,6 +56,7 @@ describe("feedApi", () => {
       const mockSession: FeedSession = {
         id: 456,
         twin: "B",
+        is_bottle: false,
         events: [],
         created_at: new Date().toISOString(),
       };
@@ -144,6 +146,7 @@ describe("feedApi", () => {
           {
             id: 1,
             twin: "A" as const,
+            is_bottle: false,
             events: [
               {
                 id: 1,
@@ -208,6 +211,7 @@ describe("feedApi", () => {
           {
             id: 1,
             twin: "A" as const,
+            is_bottle: false,
             events: [
               {
                 id: 1,
@@ -295,6 +299,7 @@ describe("feedApi", () => {
       const mockSession: FeedSession = {
         id: 123,
         twin: "B",
+        is_bottle: false,
         events: [],
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),

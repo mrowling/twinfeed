@@ -192,6 +192,7 @@ describe("useTimerStore", () => {
 
       const session: FeedSession = {
         twin: "B",
+        is_bottle: false,
         events: [
           {
             feed_session_id: 1,
@@ -222,6 +223,7 @@ describe("useTimerStore", () => {
       const sessions: FeedSession[] = [
         {
           twin: "A",
+          is_bottle: false,
           events: [
             {
               feed_session_id: 1,
