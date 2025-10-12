@@ -15,6 +15,7 @@ import {
   Save,
   X,
   Plus,
+  Filter,
 } from "lucide-react";
 import { getTwinColorClasses } from "@/lib/twinColors";
 import type { FeedSession, FeedEvent } from "@/types";
@@ -29,6 +30,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 
 function ReportPage() {
   const {
@@ -63,11 +65,96 @@ function ReportPage() {
     timestamp: string;
   } | null>(null);
 
+  // Filter state
+  const [filters, setFilters] = useState({
+    twin: "all" as "all" | "A" | "B",
+    feedType: "all" as "all" | "bottle" | "breastfeeding",
+    bottleType: "all" as "all" | "breastmilk" | "formula",
+    dateRange: "all" as
+      | "all"
+      | "today"
+      | "yesterday"
+      | "week"
+      | "month"
+      | "custom",
+  });
+  const [customDateRange, setCustomDateRange] = useState({
+    startDate: undefined as Date | undefined,
+    endDate: undefined as Date | undefined,
+  });
+  const [showFilters, setShowFilters] = useState(false);
+
   // Get custom twin names from settings (which syncs with localStorage)
   const twinAName =
     settings?.twin_a_name || localStorage.getItem("twinAName") || "Twin A";
   const twinBName =
     settings?.twin_b_name || localStorage.getItem("twinBName") || "Twin B";
+
+  // Filter sessions based on current filters
+  const filteredSessions = sessions.filter((session) => {
+    // Twin filter
+    if (filters.twin !== "all" && session.twin !== filters.twin) {
+      return false;
+    }
+
+    // Feed type filter
+    if (filters.feedType === "bottle" && !session.is_bottle) {
+      return false;
+    }
+    if (filters.feedType === "breastfeeding" && session.is_bottle) {
+      return false;
+    }
+
+    // Bottle type filter (only applies to bottle feeds)
+    if (filters.bottleType !== "all" && session.is_bottle) {
+      if (session.bottle_type !== filters.bottleType) {
+        return false;
+      }
+    }
+
+    // Date range filter
+    const sessionDate = parseISO(
+      session.created_at || session.events[0]?.timestamp || "",
+    );
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const weekAgo = new Date(today);
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    const monthAgo = new Date(today);
+    monthAgo.setDate(monthAgo.getDate() - 30);
+
+    if (filters.dateRange === "today" && sessionDate < today) {
+      return false;
+    }
+    if (
+      filters.dateRange === "yesterday" &&
+      (sessionDate < yesterday || sessionDate >= today)
+    ) {
+      return false;
+    }
+    if (filters.dateRange === "week" && sessionDate < weekAgo) {
+      return false;
+    }
+    if (filters.dateRange === "month" && sessionDate < monthAgo) {
+      return false;
+    }
+    if (filters.dateRange === "custom") {
+      if (customDateRange.startDate && sessionDate < customDateRange.startDate) {
+        return false;
+      }
+      if (customDateRange.endDate) {
+        const endDate = new Date(customDateRange.endDate);
+        endDate.setHours(23, 59, 59, 999); // Include the entire end date
+        if (sessionDate > endDate) {
+          return false;
+        }
+      }
+    }
+
+    return true;
+  });
 
   const toggleSessionExpansion = (sessionId: string) => {
     setExpandedSessions((prev) => {
@@ -189,7 +276,7 @@ function ReportPage() {
   };
 
   // Group sessions by date
-  const groupedSessions = sessions.reduce(
+  const groupedSessions = filteredSessions.reduce(
     (groups: Record<string, FeedSession[]>, session: FeedSession) => {
       // Use the first event's timestamp for timer feeds, or created_at for bottle feeds
       const timestamp = session.events[0]?.timestamp || session.created_at;
@@ -235,8 +322,8 @@ function ReportPage() {
     }
   };
 
-  const totalSessions = sessions.length;
-  const totalDuration = sessions.reduce(
+  const totalSessions = filteredSessions.length;
+  const totalDuration = filteredSessions.reduce(
     (total: number, session: FeedSession) =>
       total + calculateDuration(session.events),
     0,
@@ -327,6 +414,177 @@ function ReportPage() {
         </Card>
       )}
 
+      {/* Filter Panel */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Filter className="h-5 w-5" />
+              Filters
+            </CardTitle>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowFilters(!showFilters)}
+            >
+              {showFilters ? "Hide Filters" : "Show Filters"}
+            </Button>
+          </div>
+        </CardHeader>
+        {showFilters && (
+          <CardContent>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Twin</label>
+                <Select
+                  value={filters.twin}
+                  onValueChange={(value: "all" | "A" | "B") =>
+                    setFilters((prev) => ({ ...prev, twin: value }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Twins</SelectItem>
+                    <SelectItem value="A">{twinAName}</SelectItem>
+                    <SelectItem value="B">{twinBName}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Feed Type</label>
+                <Select
+                  value={filters.feedType}
+                  onValueChange={(value: "all" | "bottle" | "breastfeeding") =>
+                    setFilters((prev) => ({ ...prev, feedType: value }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="bottle">Bottle</SelectItem>
+                    <SelectItem value="breastfeeding">Breastfeeding</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Bottle Type</label>
+                <Select
+                  value={filters.bottleType}
+                  onValueChange={(value: "all" | "breastmilk" | "formula") =>
+                    setFilters((prev) => ({ ...prev, bottleType: value }))
+                  }
+                  disabled={filters.feedType === "breastfeeding"}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="breastmilk">Breastmilk</SelectItem>
+                    <SelectItem value="formula">Formula</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Date Range</label>
+                <Select
+                  value={filters.dateRange}
+                  onValueChange={(
+                    value:
+                      | "all"
+                      | "today"
+                      | "yesterday"
+                      | "week"
+                      | "month"
+                      | "custom",
+                  ) => setFilters((prev) => ({ ...prev, dateRange: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Time</SelectItem>
+                    <SelectItem value="today">Today</SelectItem>
+                    <SelectItem value="yesterday">Yesterday</SelectItem>
+                    <SelectItem value="week">Last 7 Days</SelectItem>
+                    <SelectItem value="month">Last 30 Days</SelectItem>
+                    <SelectItem value="custom">Custom Range</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {filters.dateRange === "custom" && (
+              <div className="grid grid-cols-2 gap-3 mt-4 pt-4 border-t">
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">
+                    Start Date
+                  </label>
+                  <DatePicker
+                    date={customDateRange.startDate}
+                    onDateChange={(date) =>
+                      setCustomDateRange((prev) => ({
+                        ...prev,
+                        startDate: date,
+                      }))
+                    }
+                    placeholder="Select start date"
+                    className="w-full"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">
+                    End Date
+                  </label>
+                  <DatePicker
+                    date={customDateRange.endDate}
+                    onDateChange={(date) =>
+                      setCustomDateRange((prev) => ({
+                        ...prev,
+                        endDate: date,
+                      }))
+                    }
+                    placeholder="Select end date"
+                    className="w-full"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between mt-4 pt-4 border-t">
+              <div className="text-sm text-muted-foreground">
+                Showing {filteredSessions.length} of {sessions.length} sessions
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setFilters({
+                    twin: "all",
+                    feedType: "all",
+                    bottleType: "all",
+                    dateRange: "all",
+                  });
+                  setCustomDateRange({
+                    startDate: undefined,
+                    endDate: undefined,
+                  });
+                }}
+              >
+                Clear Filters
+              </Button>
+            </div>
+          </CardContent>
+        )}
+      </Card>
+
       {/* Sessions List */}
       <Card>
         <CardHeader>
@@ -350,6 +608,28 @@ function ReportPage() {
               <p>No feeding sessions recorded yet</p>
               <p className="text-sm mt-2">
                 Start tracking your twins' feeding sessions!
+              </p>
+            </div>
+          ) : filteredSessions.length === 0 ? (
+            <div className="text-center text-muted-foreground py-8">
+              <Filter className="h-16 w-16 mx-auto mb-4 opacity-50" />
+              <p>No sessions match your current filters</p>
+              <p className="text-sm mt-2">
+                Try adjusting your filter settings or{" "}
+                <Button
+                  variant="link"
+                  className="p-0 h-auto text-sm"
+                  onClick={() =>
+                    setFilters({
+                      twin: "all",
+                      feedType: "all",
+                      bottleType: "all",
+                      dateRange: "all",
+                    })
+                  }
+                >
+                  clear all filters
+                </Button>
               </p>
             </div>
           ) : (
@@ -439,12 +719,12 @@ function ReportPage() {
                                                 setSessionEditData((prev) =>
                                                   prev
                                                     ? {
-                                                      ...prev,
-                                                      bottle_amount:
-                                                        parseFloat(
-                                                          e.target.value,
-                                                        ) || undefined,
-                                                    }
+                                                        ...prev,
+                                                        bottle_amount:
+                                                          parseFloat(
+                                                            e.target.value,
+                                                          ) || undefined,
+                                                      }
                                                     : null,
                                                 )
                                               }
@@ -470,9 +750,9 @@ function ReportPage() {
                                                 setSessionEditData((prev) =>
                                                   prev
                                                     ? {
-                                                      ...prev,
-                                                      bottle_type: value,
-                                                    }
+                                                        ...prev,
+                                                        bottle_type: value,
+                                                      }
                                                     : null,
                                                 )
                                               }
@@ -499,27 +779,27 @@ function ReportPage() {
                                               value={
                                                 sessionEditData?.created_at
                                                   ? new Date(
-                                                    sessionEditData.created_at,
-                                                  )
-                                                    .toISOString()
-                                                    .slice(0, 16)
-                                                  : session.created_at
-                                                    ? new Date(
-                                                      session.created_at,
+                                                      sessionEditData.created_at,
                                                     )
                                                       .toISOString()
                                                       .slice(0, 16)
+                                                  : session.created_at
+                                                    ? new Date(
+                                                        session.created_at,
+                                                      )
+                                                        .toISOString()
+                                                        .slice(0, 16)
                                                     : ""
                                               }
                                               onChange={(e) =>
                                                 setSessionEditData((prev) =>
                                                   prev
                                                     ? {
-                                                      ...prev,
-                                                      created_at: new Date(
-                                                        e.target.value,
-                                                      ).toISOString(),
-                                                    }
+                                                        ...prev,
+                                                        created_at: new Date(
+                                                          e.target.value,
+                                                        ).toISOString(),
+                                                      }
                                                     : null,
                                                 )
                                               }
@@ -583,8 +863,8 @@ function ReportPage() {
                                             ? formatTime(session.created_at)
                                             : session.events[0]
                                               ? formatTime(
-                                                session.events[0].timestamp,
-                                              )
+                                                  session.events[0].timestamp,
+                                                )
                                               : "Unknown"}
                                         </span>
                                       </div>
@@ -654,7 +934,7 @@ function ReportPage() {
                                       </h5>
                                       <div className="bg-muted/50 rounded p-3 space-y-2">
                                         {editingSession ===
-                                          session.id?.toString() ? (
+                                        session.id?.toString() ? (
                                           <>
                                             <div className="flex items-center justify-between">
                                               <span className="text-sm text-muted-foreground">
@@ -670,12 +950,12 @@ function ReportPage() {
                                                   setSessionEditData((prev) =>
                                                     prev
                                                       ? {
-                                                        ...prev,
-                                                        bottle_amount:
-                                                          parseFloat(
-                                                            e.target.value,
-                                                          ) || undefined,
-                                                      }
+                                                          ...prev,
+                                                          bottle_amount:
+                                                            parseFloat(
+                                                              e.target.value,
+                                                            ) || undefined,
+                                                        }
                                                       : null,
                                                   )
                                                 }
@@ -703,9 +983,9 @@ function ReportPage() {
                                                   setSessionEditData((prev) =>
                                                     prev
                                                       ? {
-                                                        ...prev,
-                                                        bottle_type: value,
-                                                      }
+                                                          ...prev,
+                                                          bottle_type: value,
+                                                        }
                                                       : null,
                                                   )
                                                 }
@@ -793,10 +1073,10 @@ function ReportPage() {
                                                           (prev) =>
                                                             prev
                                                               ? {
-                                                                ...prev,
-                                                                event_type:
-                                                                  value,
-                                                              }
+                                                                  ...prev,
+                                                                  event_type:
+                                                                    value,
+                                                                }
                                                               : null,
                                                         )
                                                       }
@@ -831,9 +1111,9 @@ function ReportPage() {
                                                           (prev) =>
                                                             prev
                                                               ? {
-                                                                ...prev,
-                                                                side: value,
-                                                              }
+                                                                  ...prev,
+                                                                  side: value,
+                                                                }
                                                               : null,
                                                         )
                                                       }
@@ -855,27 +1135,27 @@ function ReportPage() {
                                                       value={
                                                         eventEditData?.timestamp
                                                           ? new Date(
-                                                            eventEditData.timestamp,
-                                                          )
-                                                            .toISOString()
-                                                            .slice(0, 16)
+                                                              eventEditData.timestamp,
+                                                            )
+                                                              .toISOString()
+                                                              .slice(0, 16)
                                                           : new Date(
-                                                            event.timestamp,
-                                                          )
-                                                            .toISOString()
-                                                            .slice(0, 16)
+                                                              event.timestamp,
+                                                            )
+                                                              .toISOString()
+                                                              .slice(0, 16)
                                                       }
                                                       onChange={(e) =>
                                                         setEventEditData(
                                                           (prev) =>
                                                             prev
                                                               ? {
-                                                                ...prev,
-                                                                timestamp:
-                                                                  new Date(
-                                                                    e.target.value,
-                                                                  ).toISOString(),
-                                                              }
+                                                                  ...prev,
+                                                                  timestamp:
+                                                                    new Date(
+                                                                      e.target.value,
+                                                                    ).toISOString(),
+                                                                }
                                                               : null,
                                                         )
                                                       }
@@ -907,10 +1187,10 @@ function ReportPage() {
                                                       <Badge
                                                         variant={
                                                           event.event_type ===
-                                                            "start"
+                                                          "start"
                                                             ? "default"
                                                             : event.event_type ===
-                                                              "end"
+                                                                "end"
                                                               ? "secondary"
                                                               : "outline"
                                                         }
@@ -973,9 +1253,9 @@ function ReportPage() {
                                                 setNewEventData((prev) =>
                                                   prev
                                                     ? {
-                                                      ...prev,
-                                                      event_type: value,
-                                                    }
+                                                        ...prev,
+                                                        event_type: value,
+                                                      }
                                                     : null,
                                                 )
                                               }
@@ -1029,23 +1309,23 @@ function ReportPage() {
                                               value={
                                                 newEventData?.timestamp
                                                   ? new Date(
-                                                    newEventData.timestamp,
-                                                  )
-                                                    .toISOString()
-                                                    .slice(0, 16)
+                                                      newEventData.timestamp,
+                                                    )
+                                                      .toISOString()
+                                                      .slice(0, 16)
                                                   : new Date()
-                                                    .toISOString()
-                                                    .slice(0, 16)
+                                                      .toISOString()
+                                                      .slice(0, 16)
                                               }
                                               onChange={(e) =>
                                                 setNewEventData((prev) =>
                                                   prev
                                                     ? {
-                                                      ...prev,
-                                                      timestamp: new Date(
-                                                        e.target.value,
-                                                      ).toISOString(),
-                                                    }
+                                                        ...prev,
+                                                        timestamp: new Date(
+                                                          e.target.value,
+                                                        ).toISOString(),
+                                                      }
                                                     : null,
                                                 )
                                               }
