@@ -18,6 +18,7 @@ interface TimerStore {
 
   // Sessions
   sessions: FeedSession[];
+  totalSessions: number;
 
   // Timer actions
   startTimer: (twin: Twin, side: Side) => Promise<void>;
@@ -28,6 +29,8 @@ interface TimerStore {
   saveSession: (twin: Twin) => Promise<FeedSession | null>;
   addSession: (session: FeedSession) => void;
   setSessions: (sessions: FeedSession[]) => void;
+  appendSessions: (sessions: FeedSession[]) => void;
+  setTotalSessions: (total: number) => void;
   clearSessions: () => void;
 
   // New event-based actions
@@ -60,6 +63,7 @@ export const useTimerStore = create<TimerStore>()(
       twinA: { ...initialTimerState },
       twinB: { ...initialTimerState },
       sessions: [],
+      totalSessions: 0,
 
       // Timer actions
       startTimer: async (twin: Twin, side: Side) => {
@@ -261,8 +265,18 @@ export const useTimerStore = create<TimerStore>()(
         set({ sessions });
       },
 
+      appendSessions: (newSessions: FeedSession[]) => {
+        set((state: any) => ({
+          sessions: [...state.sessions, ...newSessions],
+        }));
+      },
+
+      setTotalSessions: (total: number) => {
+        set({ totalSessions: total });
+      },
+
       clearSessions: () => {
-        set({ sessions: [] });
+        set({ sessions: [], totalSessions: 0 });
       },
 
       // Utility functions
@@ -367,6 +381,7 @@ export const useTimerStore = create<TimerStore>()(
         twinA: state.twinA,
         twinB: state.twinB,
         sessions: state.sessions,
+        totalSessions: state.totalSessions,
       }),
     },
   ),

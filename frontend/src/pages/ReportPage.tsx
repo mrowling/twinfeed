@@ -20,7 +20,7 @@ import {
 import { getTwinColorClasses } from "@/lib/twinColors";
 import type { FeedSession, FeedEvent } from "@/types";
 import { calculateDuration } from "@/types";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { feedApi } from "@/services/api";
 import {
   Select,
@@ -33,14 +33,7 @@ import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
 
 function ReportPage() {
-  const {
-    sessions,
-    clearAllSessions,
-    isLoading,
-    error,
-    retry,
-    refreshSessions,
-  } = useApiSync();
+  const { sessions, totalSessions, clearAllSessions, isLoading, error, retry, refreshSessions, loadMoreSessions } = useApiSync();
   const { settings } = useSettings();
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(
     new Set(),
@@ -64,6 +57,8 @@ function ReportPage() {
     side: "Left" | "Right";
     timestamp: string;
   } | null>(null);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [scrollPosition, setScrollPosition] = useState(0);
 
   // Filter state
   const [filters, setFilters] = useState({
@@ -275,6 +270,25 @@ function ReportPage() {
     }
   };
 
+  const handleLoadMore = async () => {
+    // Save current scroll position
+    setScrollPosition(window.scrollY);
+    setIsLoadingMore(true);
+    try {
+      await loadMoreSessions();
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
+
+  // Restore scroll position after sessions are loaded
+  useEffect(() => {
+    if (!isLoadingMore && scrollPosition > 0) {
+      window.scrollTo(0, scrollPosition);
+      setScrollPosition(0); // Reset after restoring
+    }
+  }, [sessions.length, isLoadingMore, scrollPosition]);
+
   // Group sessions by date
   const groupedSessions = filteredSessions.reduce(
     (groups: Record<string, FeedSession[]>, session: FeedSession) => {
@@ -322,8 +336,8 @@ function ReportPage() {
     }
   };
 
-  const totalSessions = filteredSessions.length;
-  const totalDuration = filteredSessions.reduce(
+  // totalSessions is now provided by the API response
+  const totalDuration = sessions.reduce(
     (total: number, session: FeedSession) =>
       total + calculateDuration(session.events),
     0,
@@ -1374,12 +1388,31 @@ function ReportPage() {
                   </div>
                 </div>
               ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
+             </div>
+           )}
+           {/* Load More Button */}
+           {sessions.length > 0 && sessions.length < totalSessions && (
+             <div className="flex justify-center pt-4">
+               <Button
+                 onClick={handleLoadMore}
+                 disabled={isLoadingMore}
+                 variant="outline"
+               >
+                 {isLoadingMore ? (
+                   <>
+                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                     Loading...
+                   </>
+                 ) : (
+                   `Load More (${totalSessions - sessions.length} remaining)`
+                 )}
+               </Button>
+             </div>
+           )}
+         </CardContent>
+       </Card>
+     </div>
+   );
+ }
 
 export default ReportPage;
