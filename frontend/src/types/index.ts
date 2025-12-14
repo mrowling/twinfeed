@@ -24,6 +24,7 @@ export interface TimerState {
   duration: number;
   side: "Left" | "Right" | null;
   currentSessionId?: number; // Track the current session being timed
+  idleStartTime?: number; // Track when idle period began (for secondary timer)
 }
 
 export interface AppState {
