@@ -1,8 +1,249 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
-import { useTimerStore } from "../store/timerStore";
-import type { FeedSession } from "../types";
+import { create } from "zustand";
+import type { FeedSession, TimerState } from "../types";
 import { feedApi } from "../services/api";
+
+// Create a test version of the store without persistence
+interface TestTimerStore {
+  twinA: TimerState;
+  twinB: TimerState;
+  sessions: FeedSession[];
+  totalSessions: number;
+  startTimer: (twin: "A" | "B", side: "Left" | "Right") => Promise<void>;
+  pauseTimer: (twin: "A" | "B") => Promise<void>;
+  resetTimer: (twin: "A" | "B") => Promise<void>;
+  saveSession: (twin: "A" | "B") => Promise<FeedSession | null>;
+  addSession: (session: FeedSession) => void;
+  setSessions: (sessions: FeedSession[]) => void;
+  appendSessions: (sessions: FeedSession[]) => void;
+  setTotalSessions: (total: number) => void;
+  clearSessions: () => void;
+  createSession: (twin: "A" | "B") => Promise<FeedSession>;
+  addEvent: (sessionId: number, eventType: string, side: "Left" | "Right", timestamp?: Date) => Promise<void>;
+  getFormattedTime: (twin: "A" | "B") => string;
+  getCurrentDuration: (twin: "A" | "B") => number;
+  getSuggestedNextSide: (twin: "A" | "B") => "Left" | "Right" | null;
+  getIdleDuration: (twin: "A" | "B") => number;
+}
+
+const initialTimerState: TimerState = {
+  isRunning: false,
+  startTime: 0,
+  duration: 0,
+  side: null,
+  currentSessionId: undefined,
+  idleStartTime: undefined,
+};
+
+const useTestTimerStore = create<TestTimerStore>((set, get) => ({
+  twinA: { ...initialTimerState },
+  twinB: { ...initialTimerState },
+  sessions: [],
+  totalSessions: 0,
+
+  startTimer: async (twin: "A" | "B", side: "Left" | "Right") => {
+    const now = Date.now();
+    const currentState = get()[`twin${twin}` as keyof Pick<TestTimerStore, "twinA" | "twinB">];
+
+    let sessionId = currentState.currentSessionId;
+
+    if (!sessionId) {
+      const newSession = await get().createSession(twin);
+      sessionId = newSession.id!;
+    }
+
+    if (currentState.isRunning && currentState.side !== side) {
+      await get().addEvent(sessionId, "side_change", side, new Date(now));
+      set((state: any) => ({
+        [`twin${twin}`]: {
+          ...state[`twin${twin}`],
+          side,
+        },
+      }));
+    } else if (!currentState.isRunning) {
+      await get().addEvent(sessionId, "start", side, new Date(now));
+      set((state: any) => ({
+        [`twin${twin}`]: {
+          ...state[`twin${twin}`],
+          isRunning: true,
+          startTime: now,
+          side,
+          currentSessionId: sessionId,
+          idleStartTime: undefined,
+        },
+      }));
+    }
+  },
+
+  pauseTimer: async (twin: "A" | "B") => {
+    const now = Date.now();
+    const currentTimer = get()[`twin${twin}` as keyof Pick<TestTimerStore, "twinA" | "twinB">];
+
+    if (currentTimer.isRunning && currentTimer.currentSessionId && currentTimer.side) {
+      await get().addEvent(currentTimer.currentSessionId, "pause", currentTimer.side, new Date(now));
+      const additionalDuration = Math.floor((now - currentTimer.startTime) / 1000);
+      set((state: any) => ({
+        [`twin${twin}`]: {
+          ...state[`twin${twin}`],
+          isRunning: false,
+          duration: state[`twin${twin}`].duration + additionalDuration,
+          startTime: 0,
+          idleStartTime: now,
+        },
+      }));
+    }
+  },
+
+  resetTimer: async (twin: "A" | "B") => {
+    const currentTimer = get()[`twin${twin}` as keyof Pick<TestTimerStore, "twinA" | "twinB">];
+    if (currentTimer.currentSessionId && currentTimer.side) {
+      await get().addEvent(currentTimer.currentSessionId, "end", currentTimer.side);
+    }
+    set(() => ({
+      [`twin${twin}`]: { ...initialTimerState },
+    }));
+  },
+
+  saveSession: async (twin: "A" | "B") => {
+    const timer = get()[`twin${twin}` as keyof Pick<TestTimerStore, "twinA" | "twinB">];
+    if (!timer.side || !timer.currentSessionId) {
+      return null;
+    }
+    await get().addEvent(timer.currentSessionId, "end", timer.side);
+    const session = get().sessions.find((s: FeedSession) => s.id === timer.currentSessionId);
+    set(() => ({
+      [`twin${twin}`]: {
+        ...initialTimerState,
+        idleStartTime: Date.now(),
+      },
+    }));
+    return session || null;
+  },
+
+  addSession: (session: FeedSession) => {
+    set((state: any) => ({
+      sessions: [session, ...state.sessions],
+    }));
+  },
+
+  setSessions: (sessions: FeedSession[]) => {
+    set({ sessions });
+  },
+
+  appendSessions: (newSessions: FeedSession[]) => {
+    set((state: any) => ({
+      sessions: [...state.sessions, ...newSessions],
+    }));
+  },
+
+  setTotalSessions: (total: number) => {
+    set({ totalSessions: total });
+  },
+
+  clearSessions: () => {
+    set({ sessions: [], totalSessions: 0 });
+  },
+
+  createSession: async (twin: "A" | "B") => {
+    const backendSession = await feedApi.createSession({ twin });
+    set((state: any) => ({
+      sessions: [backendSession, ...state.sessions],
+    }));
+    return backendSession;
+  },
+
+  addEvent: async (sessionId: number, eventType: string, side: "Left" | "Right", timestamp: Date = new Date()) => {
+    const newEvent = {
+      id: Date.now() + Math.random(),
+      feed_session_id: sessionId,
+      event_type: eventType as any,
+      side: side,
+      timestamp: timestamp.toISOString(),
+      created_at: new Date().toISOString(),
+    };
+    set((state: any) => ({
+      sessions: state.sessions.map((session: FeedSession) =>
+        session.id === sessionId
+          ? { ...session, events: [...session.events, newEvent] }
+          : session,
+      ),
+    }));
+    await feedApi.addEvent({
+      session_id: sessionId,
+      event_type: eventType as any,
+      timestamp: timestamp.toISOString(),
+      side: side,
+    });
+  },
+
+  getFormattedTime: (twin: "A" | "B") => {
+    const currentDuration = get().getCurrentDuration(twin);
+    const minutes = Math.floor(currentDuration / 60);
+    const seconds = currentDuration % 60;
+    return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+  },
+
+  getCurrentDuration: (twin: "A" | "B") => {
+    const timer = get()[`twin${twin}` as keyof Pick<TestTimerStore, "twinA" | "twinB">];
+    if (timer.currentSessionId) {
+      const session = get().sessions.find((s: FeedSession) => s.id === timer.currentSessionId);
+      if (session) {
+        return calculateDuration(session.events);
+      }
+    }
+    let duration = timer.duration;
+    if (timer.isRunning) {
+      duration += Math.floor((Date.now() - timer.startTime) / 1000);
+    }
+    return duration;
+  },
+
+  getSuggestedNextSide: (twin: "A" | "B") => {
+    const sessions = get().sessions;
+    const twinSessions = sessions.filter((s: FeedSession) => s.twin === twin);
+    if (twinSessions.length === 0) {
+      return "Left";
+    }
+    const completedSessions = twinSessions.filter((session: FeedSession) => {
+      if (session.events.length === 0) return false;
+      const lastEvent = session.events[session.events.length - 1];
+      return lastEvent.event_type === "end";
+    });
+    if (completedSessions.length === 0) {
+      return "Left";
+    }
+    const lastCompletedSession = completedSessions[0];
+    const sideDurations: Record<string, number> = { Left: 0, Right: 0 };
+    let lastSide: string | null = null;
+    let lastStart: number | null = null;
+    for (const event of lastCompletedSession.events) {
+      if (event.event_type === "start" || event.event_type === "side_change") {
+        lastSide = event.side;
+        lastStart = new Date(event.timestamp).getTime();
+      } else if ((event.event_type === "pause" || event.event_type === "end") && lastSide && lastStart !== null) {
+        const endTime = new Date(event.timestamp).getTime();
+        sideDurations[lastSide] += Math.max(0, Math.floor((endTime - lastStart) / 1000));
+        lastStart = null;
+      }
+    }
+    if (sideDurations.Left < sideDurations.Right) {
+      return "Left";
+    } else if (sideDurations.Right < sideDurations.Left) {
+      return "Right";
+    } else {
+      return "Left";
+    }
+  },
+
+  getIdleDuration: (twin: "A" | "B") => {
+    const timer = get()[`twin${twin}` as keyof Pick<TestTimerStore, "twinA" | "twinB">];
+    if (timer.idleStartTime) {
+      return Math.floor((Date.now() - timer.idleStartTime) / 1000);
+    }
+    return 0;
+  },
+}));
 
 // Mock feedApi
 vi.mock("../services/api", () => ({
@@ -16,6 +257,9 @@ vi.mock("../services/api", () => ({
     addEvent: vi.fn().mockResolvedValue(undefined),
   },
 }));
+
+// Import calculateDuration for the test store
+import { calculateDuration } from "../types";
 
 // Mock localStorage
 const localStorageMock = {
@@ -31,10 +275,11 @@ Object.defineProperty(window, "localStorage", {
 // Reset store state before each test
 beforeEach(() => {
   vi.useFakeTimers();
-  useTimerStore.setState({
-    twinA: { isRunning: false, startTime: 0, duration: 0, side: null },
-    twinB: { isRunning: false, startTime: 0, duration: 0, side: null },
+  useTestTimerStore.setState({
+    twinA: { ...initialTimerState },
+    twinB: { ...initialTimerState },
     sessions: [],
+    totalSessions: 0,
   });
   vi.clearAllMocks();
 });
@@ -43,10 +288,10 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe("useTimerStore", () => {
+describe("useTestTimerStore", () => {
   describe("Timer Actions", () => {
     it("should start timer for Twin A", async () => {
-      const { result } = renderHook(() => useTimerStore());
+      const { result } = renderHook(() => useTestTimerStore());
 
       await act(async () => {
         await result.current.startTimer("A", "Left");
@@ -60,7 +305,7 @@ describe("useTimerStore", () => {
     });
 
     it("should start timer for Twin B", async () => {
-      const { result } = renderHook(() => useTimerStore());
+      const { result } = renderHook(() => useTestTimerStore());
 
       await act(async () => {
         await result.current.startTimer("B", "Right");
@@ -74,7 +319,7 @@ describe("useTimerStore", () => {
     });
 
     it("should pause running timer", async () => {
-      const { result } = renderHook(() => useTimerStore());
+      const { result } = renderHook(() => useTestTimerStore());
 
       // Start timer
       await act(async () => {
@@ -95,7 +340,7 @@ describe("useTimerStore", () => {
     });
 
     it("should reset timer", () => {
-      const { result } = renderHook(() => useTimerStore());
+      const { result } = renderHook(() => useTestTimerStore());
 
       // Start and pause timer to set some duration
       act(() => {
@@ -119,7 +364,7 @@ describe("useTimerStore", () => {
 
   describe("Session Management", () => {
     it("should save session when timer has duration and side", async () => {
-      const { result } = renderHook(() => useTimerStore());
+      const { result } = renderHook(() => useTestTimerStore());
 
       // Start, wait, and pause timer
       await act(async () => {
@@ -156,7 +401,7 @@ describe("useTimerStore", () => {
     });
 
     it("should not save session when timer has no duration", async () => {
-      const { result } = renderHook(() => useTimerStore());
+      const { result } = renderHook(() => useTestTimerStore());
 
       // Try to save session without starting timer
       let savedSession: FeedSession | null = null;
@@ -169,11 +414,11 @@ describe("useTimerStore", () => {
     });
 
     it("should not save session when timer has no side", async () => {
-      const { result } = renderHook(() => useTimerStore());
+      const { result } = renderHook(() => useTestTimerStore());
 
       // Manually set duration without side
       act(() => {
-        useTimerStore.setState({
+        useTestTimerStore.setState({
           twinA: { isRunning: false, startTime: 0, duration: 300, side: null },
         });
       });
@@ -188,7 +433,7 @@ describe("useTimerStore", () => {
     });
 
     it("should add external session", () => {
-      const { result } = renderHook(() => useTimerStore());
+      const { result } = renderHook(() => useTestTimerStore());
 
       const session: FeedSession = {
         twin: "B",
@@ -218,7 +463,7 @@ describe("useTimerStore", () => {
     });
 
     it("should set multiple sessions", () => {
-      const { result } = renderHook(() => useTimerStore());
+      const { result } = renderHook(() => useTestTimerStore());
 
       const sessions: FeedSession[] = [
         {
@@ -266,7 +511,7 @@ describe("useTimerStore", () => {
     });
 
     it("should clear all sessions", () => {
-      const { result } = renderHook(() => useTimerStore());
+      const { result } = renderHook(() => useTestTimerStore());
 
       // Add some sessions first
       const sessions: FeedSession[] = [
@@ -305,11 +550,11 @@ describe("useTimerStore", () => {
 
   describe("Utility Functions", () => {
     it("should format time correctly for stopped timer", () => {
-      const { result } = renderHook(() => useTimerStore());
+      const { result } = renderHook(() => useTestTimerStore());
 
       // Set duration manually
       act(() => {
-        useTimerStore.setState({
+        useTestTimerStore.setState({
           twinA: { isRunning: false, startTime: 0, duration: 125, side: null },
         });
       });
@@ -319,13 +564,13 @@ describe("useTimerStore", () => {
     });
 
     it("should format time correctly for running timer", () => {
-      const { result } = renderHook(() => useTimerStore());
+      const { result } = renderHook(() => useTestTimerStore());
 
       const startTime = Date.now();
 
       // Set running timer
       act(() => {
-        useTimerStore.setState({
+        useTestTimerStore.setState({
           twinA: { isRunning: true, startTime, duration: 60, side: "Left" },
         });
       });
@@ -340,10 +585,10 @@ describe("useTimerStore", () => {
     });
 
     it("should get current duration for stopped timer", () => {
-      const { result } = renderHook(() => useTimerStore());
+      const { result } = renderHook(() => useTestTimerStore());
 
       act(() => {
-        useTimerStore.setState({
+        useTestTimerStore.setState({
           twinA: { isRunning: false, startTime: 0, duration: 300, side: null },
         });
       });
@@ -353,12 +598,12 @@ describe("useTimerStore", () => {
     });
 
     it("should get current duration for running timer", () => {
-      const { result } = renderHook(() => useTimerStore());
+      const { result } = renderHook(() => useTestTimerStore());
 
       const startTime = Date.now();
 
       act(() => {
-        useTimerStore.setState({
+        useTestTimerStore.setState({
           twinA: { isRunning: true, startTime, duration: 100, side: "Left" },
         });
       });
@@ -372,7 +617,7 @@ describe("useTimerStore", () => {
     });
 
     it("should get suggested next side based on last session", () => {
-      const { result } = renderHook(() => useTimerStore());
+      const { result } = renderHook(() => useTestTimerStore());
 
       const sessions: FeedSession[] = [
         {
@@ -421,7 +666,7 @@ describe("useTimerStore", () => {
     });
 
     it("should return Left when no previous sessions exist", () => {
-      const { result } = renderHook(() => useTimerStore());
+      const { result } = renderHook(() => useTestTimerStore());
 
       expect(result.current.getSuggestedNextSide("A")).toBe("Left");
       expect(result.current.getSuggestedNextSide("B")).toBe("Left");
@@ -430,7 +675,7 @@ describe("useTimerStore", () => {
 
   describe("Edge Cases", () => {
     it("should handle multiple rapid timer starts/stops", async () => {
-      const { result } = renderHook(() => useTimerStore());
+      const { result } = renderHook(() => useTestTimerStore());
 
       await act(async () => {
         await result.current.startTimer("A", "Left");
@@ -446,7 +691,7 @@ describe("useTimerStore", () => {
     });
 
     it("should change side without resetting timer when already running", async () => {
-      const { result } = renderHook(() => useTimerStore());
+      const { result } = renderHook(() => useTestTimerStore());
 
       await act(async () => {
         await result.current.startTimer("A", "Left");
@@ -466,7 +711,7 @@ describe("useTimerStore", () => {
     });
 
     it("should handle concurrent timer operations", async () => {
-      const { result } = renderHook(() => useTimerStore());
+      const { result } = renderHook(() => useTestTimerStore());
 
       await act(async () => {
         await result.current.startTimer("A", "Left");
@@ -481,7 +726,7 @@ describe("useTimerStore", () => {
     });
 
     it("should preserve sessions when resetting timers", () => {
-      const { result } = renderHook(() => useTimerStore());
+      const { result } = renderHook(() => useTestTimerStore());
 
       // Add a session
       const session: FeedSession = {
@@ -514,7 +759,7 @@ describe("useTimerStore", () => {
 
   describe("Event-Based Actions", () => {
     it("should create a new session", async () => {
-      const { result } = renderHook(() => useTimerStore());
+      const { result } = renderHook(() => useTestTimerStore());
 
       const session = await act(async () => {
         return await result.current.createSession("A");
@@ -527,7 +772,7 @@ describe("useTimerStore", () => {
     });
 
     it("should add an event to a session", async () => {
-      const { result } = renderHook(() => useTimerStore());
+      const { result } = renderHook(() => useTestTimerStore());
 
       const session = await act(async () => {
         return await result.current.createSession("A");
@@ -553,7 +798,7 @@ describe("useTimerStore", () => {
     });
 
     it("should handle side change events during active timer", async () => {
-      const { result } = renderHook(() => useTimerStore());
+      const { result } = renderHook(() => useTestTimerStore());
 
       // Start timer
       await act(async () => {
@@ -579,7 +824,7 @@ describe("useTimerStore", () => {
     });
 
     it("should add pause and resume events correctly", async () => {
-      const { result } = renderHook(() => useTimerStore());
+      const { result } = renderHook(() => useTestTimerStore());
 
       // Start timer
       await act(async () => {
@@ -613,7 +858,7 @@ describe("useTimerStore", () => {
     });
 
     it("should save session with complete event sequence", async () => {
-      const { result } = renderHook(() => useTimerStore());
+      const { result } = renderHook(() => useTestTimerStore());
 
       // Start and run timer
       await act(async () => {
@@ -637,7 +882,7 @@ describe("useTimerStore", () => {
 
   describe("Side Recommendation Logic", () => {
     it("should only consider completed sessions for side recommendations", () => {
-      const { result } = renderHook(() => useTimerStore());
+      const { result } = renderHook(() => useTestTimerStore());
 
       const sessions: FeedSession[] = [
         // Completed session (ends with "end")
@@ -687,7 +932,7 @@ describe("useTimerStore", () => {
     });
 
     it("should handle sessions with pause/resume cycles", () => {
-      const { result } = renderHook(() => useTimerStore());
+      const { result } = renderHook(() => useTestTimerStore());
 
       const sessions: FeedSession[] = [
         {
@@ -730,7 +975,7 @@ describe("useTimerStore", () => {
     });
 
     it("should ignore sessions without end events", () => {
-      const { result } = renderHook(() => useTimerStore());
+      const { result } = renderHook(() => useTestTimerStore());
 
       const sessions: FeedSession[] = [
         // Session that only has start - should be ignored

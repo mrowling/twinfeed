@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useRealtimeTimer } from "@/hooks/useRealtimeTimer";
+import { useIdleTimer } from "@/hooks/useIdleTimer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +29,7 @@ function TimerCard({
   onReset,
 }: TimerCardProps) {
   const displayTime = useRealtimeTimer(twin);
+  const idleTime = useIdleTimer(twin);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   // Get custom twin names from localStorage
@@ -67,7 +69,11 @@ function TimerCard({
       <CardHeader className="text-center pb-2">
         <CardTitle className="text-lg">{twinName}</CardTitle>
         <div className="h-6 flex items-center justify-center">
-          {currentSide ? (
+          {idleTime ? (
+            <div className="text-orange-600 dark:text-orange-400 text-sm font-mono">
+              {idleTime}
+            </div>
+          ) : currentSide ? (
             <Badge variant="outline" className="mx-auto w-fit">
               Feeding on {currentSide} side
             </Badge>

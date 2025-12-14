@@ -46,6 +46,7 @@ interface TimerStore {
   getFormattedTime: (twin: Twin) => string;
   getCurrentDuration: (twin: Twin) => number;
   getSuggestedNextSide: (twin: Twin) => Side | null;
+  getIdleDuration: (twin: Twin) => number;
 }
 
 const initialTimerState: TimerState = {
@@ -103,6 +104,7 @@ export const useTimerStore = create<TimerStore>()(
               startTime: now,
               side,
               currentSessionId: sessionId,
+              idleStartTime: undefined, // Clear idle timer when resuming
             },
           }));
         }
@@ -136,6 +138,7 @@ export const useTimerStore = create<TimerStore>()(
               isRunning: false,
               duration: state[`twin${twin}`].duration + additionalDuration,
               startTime: 0,
+              idleStartTime: now, // Start idle timer when paused
             },
           }));
         }
@@ -176,9 +179,12 @@ export const useTimerStore = create<TimerStore>()(
           (s: FeedSession) => s.id === timer.currentSessionId,
         );
 
-        // Reset timer
+        // Reset timer and start idle timer
         set(() => ({
-          [`twin${twin}`]: { ...initialTimerState },
+          [`twin${twin}`]: {
+            ...initialTimerState,
+            idleStartTime: Date.now(), // Start idle timer when session saved
+          },
         }));
 
         return session || null;
@@ -308,6 +314,16 @@ export const useTimerStore = create<TimerStore>()(
           duration += Math.floor((Date.now() - timer.startTime) / 1000);
         }
         return duration;
+      },
+
+      getIdleDuration: (twin: Twin) => {
+        const timer =
+          get()[`twin${twin}` as keyof Pick<TimerStore, "twinA" | "twinB">];
+
+        if (timer.idleStartTime) {
+          return Math.floor((Date.now() - timer.idleStartTime) / 1000);
+        }
+        return 0;
       },
 
       getSuggestedNextSide: (twin: Twin) => {
