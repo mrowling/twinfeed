@@ -180,15 +180,15 @@ tasks:
   docker:pull:
     desc: Pull published Docker images from GitHub Container Registry
     cmds:
-      - docker pull ghcr.io/mrowling/feeding-tracker-backend:latest
-      - docker pull ghcr.io/mrowling/feeding-tracker-frontend:latest
+      - docker pull ghcr.io/mrowling/twinfeed-backend:latest
+      - docker pull ghcr.io/mrowling/twinfeed-frontend:latest
       - echo "✅ Published Docker images pulled successfully"
 
   docker:pull:version:
     desc: "Pull specific version of Docker images (usage: task docker:pull:version VERSION=v1.0.0)"
     cmds:
-      - docker pull ghcr.io/mrowling/feeding-tracker-backend:{{.VERSION}}
-      - docker pull ghcr.io/mrowling/feeding-tracker-frontend:{{.VERSION}}
+      - docker pull ghcr.io/mrowling/twinfeed-backend:{{.VERSION}}
+      - docker pull ghcr.io/mrowling/twinfeed-frontend:{{.VERSION}}
       - echo "✅ Version {{.VERSION}} images pulled successfully"
     requires:
       vars: [VERSION]

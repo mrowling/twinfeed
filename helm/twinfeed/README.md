@@ -56,10 +56,10 @@ The following table lists the configurable parameters of the TwinFeed chart and 
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `image.backend.repository` | Backend image repository | `ghcr.io/mrowling/feeding-tracker-backend` |
+| `image.backend.repository` | Backend image repository | `ghcr.io/mrowling/twinfeed-backend` |
 | `image.backend.tag` | Backend image tag | `"latest"` |
 | `image.backend.pullPolicy` | Backend image pull policy | `IfNotPresent` |
-| `image.frontend.repository` | Frontend image repository | `ghcr.io/mrowling/feeding-tracker-frontend` |
+| `image.frontend.repository` | Frontend image repository | `ghcr.io/mrowling/twinfeed-frontend` |
 | `image.frontend.tag` | Frontend image tag | `"latest"` |
 | `image.frontend.pullPolicy` | Frontend image pull policy | `IfNotPresent` |
 | `imagePullSecrets` | Global Docker registry secret names as an array | `[]` |

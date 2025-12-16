@@ -2,7 +2,7 @@ services:
   backend:
     # Production deployment using GitHub Container Registry
     # Use RELEASE_TAG environment variable to specify version, defaults to latest
-    image: ghcr.io/mrowling/feeding-tracker-backend:${RELEASE_TAG:-latest}
+    image: ghcr.io/mrowling/twinfeed-backend:${RELEASE_TAG:-latest}
     container_name: twinfeed-backend
     ports:
       - "8080:8080"
@@ -17,7 +17,7 @@ services:
   frontend:
     # Production deployment using GitHub Container Registry
     # Use RELEASE_TAG environment variable to specify version, defaults to latest
-    image: ghcr.io/mrowling/feeding-tracker-frontend:${RELEASE_TAG:-latest}
+    image: ghcr.io/mrowling/twinfeed-frontend:${RELEASE_TAG:-latest}
     container_name: twinfeed-frontend
     ports:
       - "3000:80"

@@ -6,7 +6,7 @@ entries:
       created: "2025-10-10T12:00:00Z"
       description: A Helm chart for TwinFeed - A mobile-friendly breastfeeding tracker for twins
       digest: ""
-      home: https://github.com/mrowling/feeding-tracker
+      home: https://github.com/mrowling/twinfeed
       keywords:
         - breastfeeding
         - tracker
@@ -18,9 +18,9 @@ entries:
           name: mrowling
       name: twinfeed
       sources:
-        - https://github.com/mrowling/feeding-tracker
+        - https://github.com/mrowling/twinfeed
       type: application
       urls:
-        - https://mrowling.github.io/feeding-tracker/twinfeed-0.1.0.tgz
+        - https://mrowling.github.io/twinfeed/twinfeed-0.1.0.tgz
       version: 0.1.0
 generated: "2025-10-10T12:00:00Z"

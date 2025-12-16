@@ -33,7 +33,7 @@ A mobile-friendly breastfeeding tracker designed specifically for parents of twi
 1. **Clone the repository**
    ```bash
    git clone <repository-url>
-   cd feeding-tracker
+   cd twinfeed
    ```
 
 2. **Initial setup**
@@ -108,7 +108,7 @@ task lint             # Run linters
 
 1. **Add the Helm repository**
    ```bash
-   helm repo add twinfeed https://mrowling.github.io/feeding-tracker
+   helm repo add twinfeed https://mrowling.github.io/twinfeed
    helm repo update
    ```
 
@@ -159,8 +159,8 @@ The project uses two workflows for Docker image publishing:
 
 #### CI Workflow (Development)
 Publishes images on every push to development branches and validates all components:
-- **Backend**: `ghcr.io/mrowling/feeding-tracker-backend`
-- **Frontend**: `ghcr.io/mrowling/feeding-tracker-frontend`
+- **Backend**: `ghcr.io/mrowling/twinfeed-backend`
+- **Frontend**: `ghcr.io/mrowling/twinfeed-frontend`
 - **Helm Chart**: Validates chart syntax, templates, and packaging
 
 Development tags:
@@ -217,7 +217,7 @@ To publish a new release with Docker images:
 ## Project Structure
 
 ```
-feeding-tracker/
+twinfeed/
 ├── backend/                 # Go API server
 │   ├── cmd/server/         # Application entrypoint
 │   ├── internal/
