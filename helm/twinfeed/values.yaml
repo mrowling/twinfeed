@@ -6,11 +6,11 @@ replicaCount: 1
 
 image:
   backend:
-    repository: ghcr.io/mrowling/feeding-tracker-backend
+    repository: ghcr.io/mrowling/twinfeed-backend
     pullPolicy: IfNotPresent
     tag: "latest"
   frontend:
-    repository: ghcr.io/mrowling/feeding-tracker-frontend
+    repository: ghcr.io/mrowling/twinfeed-frontend
     pullPolicy: IfNotPresent
     tag: "latest"
 
