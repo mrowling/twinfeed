@@ -4,6 +4,8 @@ import Navigation from "./components/Navigation";
 import TrackerPage from "./pages/TrackerPage";
 import BottlePage from "./pages/BottlePage";
 import ReportPage from "./pages/ReportPage";
+import SleepTrackerPage from "./pages/SleepTrackerPage";
+import SleepReportPage from "./pages/SleepReportPage";
 import SettingsPage from "./pages/SettingsPage";
 
 function App() {
@@ -16,6 +18,8 @@ function App() {
             <Route path="/" element={<TrackerPage />} />
             <Route path="/bottle" element={<BottlePage />} />
             <Route path="/report" element={<ReportPage />} />
+            <Route path="/sleep" element={<SleepTrackerPage />} />
+            <Route path="/sleep-report" element={<SleepReportPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Routes>
         </main>

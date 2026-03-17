@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { FeedSession, FeedEvent } from "@/types";
+import type { FeedSession, FeedEvent, SleepSession, SleepEvent } from "@/types";
 import { getApiBaseUrl } from "@/utils/apiUrl";
 
 const API_BASE_URL = getApiBaseUrl();
@@ -51,6 +51,31 @@ export interface AddEventRequest {
   event_type: "start" | "pause" | "end" | "side_change";
   timestamp: string;
   side: "Left" | "Right";
+}
+
+export interface SleepResponse {
+  sleep: SleepSession[];
+  total: number;
+}
+
+export interface CreateSleepSessionRequest {
+  twin: "A" | "B";
+}
+
+export interface AddSleepEventRequest {
+  session_id: number;
+  event_type: "start" | "pause" | "end";
+  timestamp: string;
+}
+
+export interface UpdateSleepSessionRequest {
+  twin: "A" | "B";
+  created_at?: string;
+}
+
+export interface UpdateSleepEventRequest {
+  event_type: "start" | "pause" | "end";
+  timestamp: string;
 }
 
 export const feedApi = {
@@ -109,6 +134,76 @@ export const feedApi = {
   // Delete a feed event
   deleteEvent: async (id: number): Promise<SimpleDeleteResponse> => {
     const response = await api.delete<SimpleDeleteResponse>(`/events/${id}`);
+    return response.data;
+  },
+};
+
+export const sleepApi = {
+  // Create a new sleep session
+  createSession: async (
+    request: CreateSleepSessionRequest,
+  ): Promise<SleepSession> => {
+    const response = await api.post<SleepSession>("/sleep/sessions", request);
+    return response.data;
+  },
+
+  // Add an event to an existing session
+  addEvent: async (request: AddSleepEventRequest): Promise<SleepEvent> => {
+    const response = await api.post<SleepEvent>("/sleep/events", request);
+    return response.data;
+  },
+
+  // Get all sleep sessions
+  getSleep: async (limit = 100, offset = 0): Promise<SleepResponse> => {
+    const response = await api.get<SleepResponse>("/sleep", {
+      params: { limit, offset },
+    });
+    return response.data;
+  },
+
+  // Delete all sleep sessions
+  deleteAllSleep: async (): Promise<DeleteResponse> => {
+    const response = await api.delete<DeleteResponse>("/sleep");
+    return response.data;
+  },
+
+  // Update a sleep session
+  updateSession: async (
+    id: number,
+    request: UpdateSleepSessionRequest,
+  ): Promise<SleepSession> => {
+    const response = await api.put<SleepSession>(
+      `/sleep/sessions/${id}`,
+      request,
+    );
+    return response.data;
+  },
+
+  // Delete a sleep session
+  deleteSession: async (id: number): Promise<SimpleDeleteResponse> => {
+    const response = await api.delete<SimpleDeleteResponse>(
+      `/sleep/sessions/${id}`,
+    );
+    return response.data;
+  },
+
+  // Update a sleep event
+  updateEvent: async (
+    id: number,
+    request: UpdateSleepEventRequest,
+  ): Promise<SleepEvent> => {
+    const response = await api.put<SleepEvent>(
+      `/sleep/events/${id}`,
+      request,
+    );
+    return response.data;
+  },
+
+  // Delete a sleep event
+  deleteEvent: async (id: number): Promise<SimpleDeleteResponse> => {
+    const response = await api.delete<SimpleDeleteResponse>(
+      `/sleep/events/${id}`,
+    );
     return response.data;
   },
 };

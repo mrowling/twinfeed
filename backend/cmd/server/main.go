@@ -61,6 +61,16 @@ func main() {
 		v1.GET("/feeds", handlers.GetFeeds)
 		v1.DELETE("/feeds", handlers.DeleteAllFeeds)
 
+		// Sleep routes
+		v1.POST("/sleep/sessions", handlers.CreateSleepSession)
+		v1.POST("/sleep/events", handlers.AddSleepEvent)
+		v1.PUT("/sleep/sessions/:id", handlers.UpdateSleepSession)
+		v1.DELETE("/sleep/sessions/:id", handlers.DeleteSleepSession)
+		v1.PUT("/sleep/events/:id", handlers.UpdateSleepEvent)
+		v1.DELETE("/sleep/events/:id", handlers.DeleteSleepEvent)
+		v1.GET("/sleep", handlers.GetSleep)
+		v1.DELETE("/sleep", handlers.DeleteAllSleep)
+
 		// Settings routes
 		v1.GET("/settings", handlers.GetSettings)
 		v1.PUT("/settings", handlers.UpdateSettings)

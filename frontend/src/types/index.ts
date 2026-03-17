@@ -18,6 +18,22 @@ export interface FeedSession {
   updated_at?: string; // ISO string
 }
 
+export interface SleepEvent {
+  id?: number;
+  sleep_session_id: number;
+  event_type: "start" | "pause" | "end";
+  timestamp: string; // ISO string
+  created_at?: string; // ISO string
+}
+
+export interface SleepSession {
+  id?: number;
+  twin: "A" | "B";
+  events: SleepEvent[];
+  created_at?: string; // ISO string
+  updated_at?: string; // ISO string
+}
+
 export interface TimerState {
   isRunning: boolean;
   startTime: number;
@@ -25,6 +41,14 @@ export interface TimerState {
   side: "Left" | "Right" | null;
   currentSessionId?: number; // Track the current session being timed
   idleStartTime?: number; // Track when idle period began (for secondary timer)
+}
+
+export interface SleepTimerState {
+  isRunning: boolean;
+  startTime: number;
+  duration: number;
+  currentSessionId?: number; // Track the current session being timed
+  idleStartTime?: number; // Track when idle period began (for wake window tracking)
 }
 
 export interface AppState {
@@ -36,6 +60,7 @@ export interface AppState {
 export type Twin = "A" | "B";
 export type Side = "Left" | "Right";
 export type EventType = "start" | "pause" | "end" | "side_change";
+export type SleepEventType = "start" | "pause" | "end";
 
 export interface UserSettings {
   id?: number;
@@ -90,4 +115,46 @@ export function isSessionActive(events: FeedEvent[]): boolean {
   return (
     lastEvent.event_type === "start" || lastEvent.event_type === "side_change"
   );
+}
+
+// Helper function to calculate total duration from sleep events
+export function calculateSleepDuration(events: SleepEvent[]): number {
+  if (events.length === 0) return 0;
+
+  let totalDuration = 0;
+  let startTime: Date | null = null;
+
+  for (const event of events) {
+    const eventTime = new Date(event.timestamp);
+
+    switch (event.event_type) {
+      case "start":
+        startTime = eventTime;
+        break;
+      case "pause":
+      case "end":
+        if (startTime) {
+          totalDuration += Math.floor(
+            (eventTime.getTime() - startTime.getTime()) / 1000,
+          );
+          startTime = null;
+        }
+        break;
+    }
+  }
+
+  // If session is still active (no pause/end event after last start)
+  if (startTime) {
+    totalDuration += Math.floor((Date.now() - startTime.getTime()) / 1000);
+  }
+
+  // Return 0 for negative durations (invalid timestamps)
+  return Math.max(0, totalDuration);
+}
+
+// Helper function to check if a sleep session is currently active
+export function isSleepSessionActive(events: SleepEvent[]): boolean {
+  if (events.length === 0) return false;
+  const lastEvent = events[events.length - 1];
+  return lastEvent.event_type === "start";
 }

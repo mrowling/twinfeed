@@ -34,12 +34,6 @@ type FeedsResponse struct {
 	Total int64                `json:"total"`
 }
 
-// DeleteResponse represents the response for deleting feeds
-type DeleteResponse struct {
-	Message      string `json:"message"`
-	DeletedCount int64  `json:"deleted_count"`
-}
-
 // CreateFeedSession creates a new feeding session
 func CreateFeedSession(c *gin.Context) {
 	var req CreateFeedSessionRequest

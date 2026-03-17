@@ -54,7 +54,7 @@ func Initialize() error {
 	sqlDB.SetMaxIdleConns(1)
 
 	// Run migrations
-	if err := db.AutoMigrate(&models.FeedSession{}, &models.FeedEvent{}, &models.UserSettings{}); err != nil {
+	if err := db.AutoMigrate(&models.FeedSession{}, &models.FeedEvent{}, &models.UserSettings{}, &models.SleepSession{}, &models.SleepEvent{}); err != nil {
 		return fmt.Errorf("failed to migrate database: %v", err)
 	}
 
