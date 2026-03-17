@@ -4,8 +4,33 @@ entries:
   - annotations:
       category: Health & Fitness
     apiVersion: v2
+    appVersion: 1.6.0
+    created: "2026-03-17T01:31:29.572131028Z"
+    description: A Helm chart for TwinFeed - A mobile-friendly breastfeeding tracker
+      for twins
+    digest: 739e01cff47154144367f71f869e0537b6c2c628d1e69240503abe595908b628
+    home: https://github.com/mrowling/twinfeed
+    keywords:
+    - breastfeeding
+    - tracker
+    - twins
+    - mobile
+    - health
+    maintainers:
+    - email: your-email@example.com
+      name: mrowling
+    name: twinfeed
+    sources:
+    - https://github.com/mrowling/twinfeed
+    type: application
+    urls:
+    - https://mrowling.github.io/twinfeed/twinfeed-1.6.0.tgz
+    version: 1.6.0
+  - annotations:
+      category: Health & Fitness
+    apiVersion: v2
     appVersion: 1.5.0
-    created: "2025-12-16T05:51:56.848337235Z"
+    created: "2026-03-17T01:31:29.570797991Z"
     description: A Helm chart for TwinFeed - A mobile-friendly breastfeeding tracker
       for twins
     digest: 5d8b7d216cee47a41c5bfa9676fc799fdf748543bf53a217732615fa84e06dd0
@@ -30,7 +55,7 @@ entries:
       category: Health & Fitness
     apiVersion: v2
     appVersion: 1.4.1
-    created: "2025-12-16T05:51:56.847763468Z"
+    created: "2026-03-17T01:31:29.570220581Z"
     description: A Helm chart for TwinFeed - A mobile-friendly breastfeeding tracker
       for twins
     digest: 4572de62e48923ac9ae3a275f890d732ce7a795c95e35755deb53b3c55f1d7ce
@@ -55,7 +80,7 @@ entries:
       category: Health & Fitness
     apiVersion: v2
     appVersion: 1.4.0
-    created: "2025-12-16T05:51:56.847201073Z"
+    created: "2026-03-17T01:31:29.569686593Z"
     description: A Helm chart for TwinFeed - A mobile-friendly breastfeeding tracker
       for twins
     digest: ddc2a0b527e36be8c86a7e2c31d403279c62bafa31dd5d1b07c4d9f644a65db4
@@ -80,7 +105,7 @@ entries:
       category: Health & Fitness
     apiVersion: v2
     appVersion: 1.3.0
-    created: "2025-12-16T05:51:56.846495516Z"
+    created: "2026-03-17T01:31:29.569124682Z"
     description: A Helm chart for TwinFeed - A mobile-friendly breastfeeding tracker
       for twins
     digest: 154d316e604c01c5ff92363954619b03bef8a7023ea501c926def7f9c62311a3
@@ -105,7 +130,7 @@ entries:
       category: Health & Fitness
     apiVersion: v2
     appVersion: 1.2.0
-    created: "2025-12-16T05:51:56.845835756Z"
+    created: "2026-03-17T01:31:29.568586796Z"
     description: A Helm chart for TwinFeed - A mobile-friendly breastfeeding tracker
       for twins
     digest: 8a3779a50c16e394d7c6ec8d8687585a7c210dacec71f7922d51f990a6766d92
@@ -130,7 +155,7 @@ entries:
       category: Health & Fitness
     apiVersion: v2
     appVersion: 1.1.1
-    created: "2025-12-16T05:51:56.844609778Z"
+    created: "2026-03-17T01:31:29.56800044Z"
     description: A Helm chart for TwinFeed - A mobile-friendly breastfeeding tracker
       for twins
     digest: f52e0fed5f5c2dd921126b51489d75fad950221a370e624d2f63ae088740a240
@@ -155,7 +180,7 @@ entries:
       category: Health & Fitness
     apiVersion: v2
     appVersion: 1.1.0
-    created: "2025-12-16T05:51:56.843992799Z"
+    created: "2026-03-17T01:31:29.567425094Z"
     description: A Helm chart for TwinFeed - A mobile-friendly breastfeeding tracker
       for twins
     digest: 925a3b846a22ed9dc853b1b803add8a5bdfb43981fde659a29d073f7c0e2524f
@@ -180,7 +205,7 @@ entries:
       category: Health & Fitness
     apiVersion: v2
     appVersion: 1.0.2
-    created: "2025-12-16T05:51:56.843430734Z"
+    created: "2026-03-17T01:31:29.56680286Z"
     description: A Helm chart for TwinFeed - A mobile-friendly breastfeeding tracker
       for twins
     digest: 6a6978dcb17f8f66e51665572db1806c0ae905c99a6d4c9e347dbdd9b8cbdd79
@@ -201,4 +226,4 @@ entries:
     urls:
     - https://mrowling.github.io/twinfeed/twinfeed-1.0.2.tgz
     version: 1.0.2
-generated: "2025-12-16T05:51:56.842651528Z"
+generated: "2026-03-17T01:31:29.566007072Z"
