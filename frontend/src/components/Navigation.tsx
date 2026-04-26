@@ -21,7 +21,7 @@ function Navigation() {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const feedPaths = ["/", "/bottle", "/report"];
+  const feedPaths = ["/", "/report"];
   const sleepPaths = ["/sleep", "/sleep-report"];
   const isFeedActive = feedPaths.includes(location.pathname);
   const isSleepActive = sleepPaths.includes(location.pathname);
@@ -53,11 +53,6 @@ function Navigation() {
               <DropdownMenuContent align="end">
                 <DropdownMenuItem asChild>
                   <Link to="/" className="w-full cursor-pointer">
-                    Feed Timer
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/bottle" className="w-full cursor-pointer">
                     Bottle Feed
                   </Link>
                 </DropdownMenuItem>
@@ -132,15 +127,7 @@ function Navigation() {
                       className="w-full justify-start h-12 text-base"
                       onClick={closeMobileMenu}
                     >
-                      <Link to="/">Feed Timer</Link>
-                    </Button>
-                    <Button
-                      asChild
-                      variant={location.pathname === "/bottle" ? "default" : "ghost"}
-                      className="w-full justify-start h-12 text-base"
-                      onClick={closeMobileMenu}
-                    >
-                      <Link to="/bottle">Bottle Feed</Link>
+                      <Link to="/">Bottle Feed</Link>
                     </Button>
                     <Button
                       asChild

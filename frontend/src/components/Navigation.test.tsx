@@ -72,7 +72,6 @@ describe("Navigation", () => {
       fireEvent.click(menuButton!);
 
       // Check for menu items
-      expect(screen.getByText("Feed Timer")).toBeInTheDocument();
       expect(screen.getByText("Bottle Feed")).toBeInTheDocument();
       expect(screen.getByText("Sleep Tracker")).toBeInTheDocument();
     });
@@ -85,8 +84,8 @@ describe("Navigation", () => {
       fireEvent.click(menuButton!);
       
       // Click a link
-      const feedTimerLink = screen.getByText("Feed Timer");
-      fireEvent.click(feedTimerLink);
+      const bottleFeedLink = screen.getByText("Bottle Feed");
+      fireEvent.click(bottleFeedLink);
 
       // Menu should close (sheet will handle this via onOpenChange)
       // We can't easily test this without more complex setup, but the onClick handler is in place
@@ -111,7 +110,6 @@ describe("Navigation", () => {
       
       fireEvent.click(menuButton!);
 
-      expect(screen.getByText("Feed Timer")).toBeInTheDocument();
       expect(screen.getByText("Bottle Feed")).toBeInTheDocument();
       expect(screen.getByText("Feed Report")).toBeInTheDocument();
     });
@@ -136,11 +134,11 @@ describe("Navigation", () => {
 
       // Check that mobile menu buttons have proper height (h-12 = 48px, good for touch)
       // Links are wrapped in Button components with h-12 and text-base for good touch targets
-      const feedTimerLink = screen.getByText("Feed Timer");
-      expect(feedTimerLink).toBeInTheDocument();
+      const bottleFeedLink = screen.getByText("Bottle Feed");
+      expect(bottleFeedLink).toBeInTheDocument();
       
       // Check that the button wrapper has mobile-friendly sizing classes
-      const buttonWrapper = feedTimerLink.closest("a");
+      const buttonWrapper = bottleFeedLink.closest("a");
       expect(buttonWrapper).toHaveClass("h-12");
       expect(buttonWrapper).toHaveClass("text-base");
     });

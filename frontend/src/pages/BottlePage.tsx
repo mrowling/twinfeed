@@ -20,9 +20,6 @@ function BottlePage() {
   const { settings } = useSettings();
   const [selectedTwin, setSelectedTwin] = useState<"A" | "B">("A");
   const [amount, setAmount] = useState<string>("");
-  const [bottleType, setBottleType] = useState<"breastmilk" | "formula">(
-    "breastmilk",
-  );
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const twinAName = settings?.twin_a_name || "Twin A";
@@ -43,7 +40,7 @@ function BottlePage() {
         twin: selectedTwin,
         is_bottle: true,
         bottle_amount: amountNum,
-        bottle_type: bottleType,
+        bottle_type: "formula",
         events: [],
       };
 
@@ -120,24 +117,6 @@ function BottlePage() {
                 placeholder="Enter amount in milliliters"
                 required
               />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="type">Bottle Type</Label>
-              <Select
-                value={bottleType}
-                onValueChange={(value: "breastmilk" | "formula") =>
-                  setBottleType(value)
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="breastmilk">Breastmilk</SelectItem>
-                  <SelectItem value="formula">Formula</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
 
             <Button type="submit" className="w-full" disabled={isSubmitting}>

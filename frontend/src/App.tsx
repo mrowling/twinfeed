@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "@/components/theme-provider";
 import Navigation from "./components/Navigation";
 import TrackerPage from "./pages/TrackerPage";
@@ -15,8 +15,9 @@ function App() {
         <Navigation />
         <main className="container mx-auto px-4 py-6 max-w-md sm:max-w-2xl">
           <Routes>
-            <Route path="/" element={<TrackerPage />} />
-            <Route path="/bottle" element={<BottlePage />} />
+            <Route path="/" element={<BottlePage />} />
+            <Route path="/bottle" element={<Navigate to="/" replace />} />
+            <Route path="/timer" element={<TrackerPage />} />
             <Route path="/report" element={<ReportPage />} />
             <Route path="/sleep" element={<SleepTrackerPage />} />
             <Route path="/sleep-report" element={<SleepReportPage />} />
