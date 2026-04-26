@@ -4,8 +4,33 @@ entries:
   - annotations:
       category: Health & Fitness
     apiVersion: v2
+    appVersion: 2.0.0
+    created: "2026-04-26T14:19:15.878076961Z"
+    description: A Helm chart for TwinFeed - A mobile-friendly breastfeeding tracker
+      for twins
+    digest: f83efeec8e2b29898b48b9162c8a5180e15445a64dc05e8b1c8aca95106e310e
+    home: https://github.com/mrowling/twinfeed
+    keywords:
+    - breastfeeding
+    - tracker
+    - twins
+    - mobile
+    - health
+    maintainers:
+    - email: your-email@example.com
+      name: mrowling
+    name: twinfeed
+    sources:
+    - https://github.com/mrowling/twinfeed
+    type: application
+    urls:
+    - https://mrowling.github.io/twinfeed/twinfeed-2.0.0.tgz
+    version: 2.0.0
+  - annotations:
+      category: Health & Fitness
+    apiVersion: v2
     appVersion: 1.6.0
-    created: "2026-03-17T01:31:29.572131028Z"
+    created: "2026-04-26T14:19:15.877266424Z"
     description: A Helm chart for TwinFeed - A mobile-friendly breastfeeding tracker
       for twins
     digest: 739e01cff47154144367f71f869e0537b6c2c628d1e69240503abe595908b628
@@ -30,7 +55,7 @@ entries:
       category: Health & Fitness
     apiVersion: v2
     appVersion: 1.5.0
-    created: "2026-03-17T01:31:29.570797991Z"
+    created: "2026-04-26T14:19:15.876700154Z"
     description: A Helm chart for TwinFeed - A mobile-friendly breastfeeding tracker
       for twins
     digest: 5d8b7d216cee47a41c5bfa9676fc799fdf748543bf53a217732615fa84e06dd0
@@ -55,7 +80,7 @@ entries:
       category: Health & Fitness
     apiVersion: v2
     appVersion: 1.4.1
-    created: "2026-03-17T01:31:29.570220581Z"
+    created: "2026-04-26T14:19:15.876003972Z"
     description: A Helm chart for TwinFeed - A mobile-friendly breastfeeding tracker
       for twins
     digest: 4572de62e48923ac9ae3a275f890d732ce7a795c95e35755deb53b3c55f1d7ce
@@ -80,7 +105,7 @@ entries:
       category: Health & Fitness
     apiVersion: v2
     appVersion: 1.4.0
-    created: "2026-03-17T01:31:29.569686593Z"
+    created: "2026-04-26T14:19:15.875482667Z"
     description: A Helm chart for TwinFeed - A mobile-friendly breastfeeding tracker
       for twins
     digest: ddc2a0b527e36be8c86a7e2c31d403279c62bafa31dd5d1b07c4d9f644a65db4
@@ -105,7 +130,7 @@ entries:
       category: Health & Fitness
     apiVersion: v2
     appVersion: 1.3.0
-    created: "2026-03-17T01:31:29.569124682Z"
+    created: "2026-04-26T14:19:15.874930484Z"
     description: A Helm chart for TwinFeed - A mobile-friendly breastfeeding tracker
       for twins
     digest: 154d316e604c01c5ff92363954619b03bef8a7023ea501c926def7f9c62311a3
@@ -130,7 +155,7 @@ entries:
       category: Health & Fitness
     apiVersion: v2
     appVersion: 1.2.0
-    created: "2026-03-17T01:31:29.568586796Z"
+    created: "2026-04-26T14:19:15.874359616Z"
     description: A Helm chart for TwinFeed - A mobile-friendly breastfeeding tracker
       for twins
     digest: 8a3779a50c16e394d7c6ec8d8687585a7c210dacec71f7922d51f990a6766d92
@@ -155,7 +180,7 @@ entries:
       category: Health & Fitness
     apiVersion: v2
     appVersion: 1.1.1
-    created: "2026-03-17T01:31:29.56800044Z"
+    created: "2026-04-26T14:19:15.873798997Z"
     description: A Helm chart for TwinFeed - A mobile-friendly breastfeeding tracker
       for twins
     digest: f52e0fed5f5c2dd921126b51489d75fad950221a370e624d2f63ae088740a240
@@ -180,7 +205,7 @@ entries:
       category: Health & Fitness
     apiVersion: v2
     appVersion: 1.1.0
-    created: "2026-03-17T01:31:29.567425094Z"
+    created: "2026-04-26T14:19:15.873228399Z"
     description: A Helm chart for TwinFeed - A mobile-friendly breastfeeding tracker
       for twins
     digest: 925a3b846a22ed9dc853b1b803add8a5bdfb43981fde659a29d073f7c0e2524f
@@ -205,7 +230,7 @@ entries:
       category: Health & Fitness
     apiVersion: v2
     appVersion: 1.0.2
-    created: "2026-03-17T01:31:29.56680286Z"
+    created: "2026-04-26T14:19:15.87261952Z"
     description: A Helm chart for TwinFeed - A mobile-friendly breastfeeding tracker
       for twins
     digest: 6a6978dcb17f8f66e51665572db1806c0ae905c99a6d4c9e347dbdd9b8cbdd79
@@ -226,4 +251,4 @@ entries:
     urls:
     - https://mrowling.github.io/twinfeed/twinfeed-1.0.2.tgz
     version: 1.0.2
-generated: "2026-03-17T01:31:29.566007072Z"
+generated: "2026-04-26T14:19:15.871833059Z"
