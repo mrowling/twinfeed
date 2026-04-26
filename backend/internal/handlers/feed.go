@@ -14,10 +14,11 @@ import (
 
 // CreateFeedSessionRequest represents the request body for creating a feed session
 type CreateFeedSessionRequest struct {
-	Twin         string   `json:"twin" binding:"required,oneof=A B"`
-	IsBottle     bool     `json:"is_bottle"`
-	BottleAmount *float64 `json:"bottle_amount,omitempty"`
-	BottleType   *string  `json:"bottle_type,omitempty"`
+	Twin         string     `json:"twin" binding:"required,oneof=A B"`
+	IsBottle     bool       `json:"is_bottle"`
+	BottleAmount *float64   `json:"bottle_amount,omitempty"`
+	BottleType   *string    `json:"bottle_type,omitempty"`
+	CreatedAt    *time.Time `json:"created_at,omitempty"`
 }
 
 // AddFeedEventRequest represents the request body for adding an event to a session
@@ -67,6 +68,10 @@ func CreateFeedSession(c *gin.Context) {
 		BottleAmount: req.BottleAmount,
 		BottleType:   req.BottleType,
 		Events:       []models.FeedEvent{}, // Initialize empty events slice
+	}
+	if req.CreatedAt != nil {
+		feed.CreatedAt = *req.CreatedAt
+		feed.UpdatedAt = *req.CreatedAt
 	}
 
 	db := database.GetDB()

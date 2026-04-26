@@ -14,12 +14,27 @@ import { useSettings } from "@/hooks/useSettings";
 import { feedApi } from "@/services/api";
 import { Loader2, Baby } from "lucide-react";
 import { getTwinColorClasses } from "@/lib/twinColors";
-import type { FeedSession } from "@/types";
+
+function formatDateTimeLocalValue(d: Date): string {
+  const pad = (n: number): string => n.toString().padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function dateTimeLocalToISO(localValue: string): string {
+  const parsed: Date = new Date(localValue);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new Error("Invalid date");
+  }
+  return parsed.toISOString();
+}
 
 function BottlePage() {
   const { settings } = useSettings();
   const [selectedTwin, setSelectedTwin] = useState<"A" | "B">("A");
   const [amount, setAmount] = useState<string>("");
+  const [feedDateTimeLocal, setFeedDateTimeLocal] = useState<string>(() =>
+    formatDateTimeLocalValue(new Date()),
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const twinAName = settings?.twin_a_name || "Twin A";
@@ -33,19 +48,25 @@ function BottlePage() {
       alert("Please enter a valid amount");
       return;
     }
+    let createdAtISO: string;
+    try {
+      createdAtISO = dateTimeLocalToISO(feedDateTimeLocal);
+    } catch {
+      alert("Please enter a valid date and time");
+      return;
+    }
 
     setIsSubmitting(true);
     try {
-      const session: Omit<FeedSession, "id" | "created_at" | "updated_at"> = {
+      await feedApi.createSession({
         twin: selectedTwin,
         is_bottle: true,
         bottle_amount: amountNum,
         bottle_type: "formula",
-        events: [],
-      };
-
-      await feedApi.createSession(session);
+        created_at: createdAtISO,
+      });
       setAmount("");
+      setFeedDateTimeLocal(formatDateTimeLocalValue(new Date()));
       alert("Bottle feed recorded successfully!");
     } catch (error) {
       console.error("Failed to record bottle feed:", error);
@@ -115,6 +136,17 @@ function BottlePage() {
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="Enter amount in milliliters"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="feed-time">Time</Label>
+              <Input
+                id="feed-time"
+                type="datetime-local"
+                value={feedDateTimeLocal}
+                onChange={(e) => setFeedDateTimeLocal(e.target.value)}
                 required
               />
             </div>

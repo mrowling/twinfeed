@@ -128,6 +128,36 @@ func (suite *FeedHandlerTestSuite) TestCreateBottleSessionSuccess() {
 	assert.NotZero(suite.T(), response.ID)
 }
 
+func (suite *FeedHandlerTestSuite) TestCreateBottleSessionWithCreatedAt() {
+	fixed := time.Date(2024, 3, 15, 14, 30, 0, 0, time.UTC)
+	bottleRequest := CreateFeedSessionRequest{
+		Twin:         "B",
+		IsBottle:     true,
+		BottleAmount: &[]float64{90.0}[0],
+		BottleType:   &[]string{"formula"}[0],
+		CreatedAt:    &fixed,
+	}
+
+	body, err := json.Marshal(bottleRequest)
+	suite.Require().NoError(err)
+
+	req := httptest.NewRequest("POST", "/api/v1/sessions", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	suite.router.ServeHTTP(w, req)
+
+	assert.Equal(suite.T(), http.StatusCreated, w.Code)
+
+	var response models.FeedSession
+	err = json.Unmarshal(w.Body.Bytes(), &response)
+	suite.Require().NoError(err)
+
+	assert.True(suite.T(), response.IsBottle)
+	assert.WithinDuration(suite.T(), fixed, response.CreatedAt, time.Second)
+	assert.WithinDuration(suite.T(), fixed, response.UpdatedAt, time.Second)
+}
+
 func (suite *FeedHandlerTestSuite) TestCreateBottleSessionInvalidAmount() {
 	bottleRequest := CreateFeedSessionRequest{
 		Twin:         "A",

@@ -44,6 +44,8 @@ export interface CreateSessionRequest {
   is_bottle?: boolean;
   bottle_amount?: number;
   bottle_type?: "breastmilk" | "formula";
+  /** ISO 8601 timestamp; when set, session is recorded at this time */
+  created_at?: string;
 }
 
 export interface AddEventRequest {

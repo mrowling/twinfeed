@@ -48,7 +48,7 @@ describe("BottlePage", () => {
     expect(screen.queryByText("Bottle Type")).not.toBeInTheDocument();
   });
 
-  it("submits a bottle feed with bottle_type formula", async () => {
+  it("submits a bottle feed with bottle_type formula and created_at", async () => {
     render(<BottlePage />);
     const amountInput = screen.getByLabelText(/amount \(ml\)/i);
     fireEvent.change(amountInput, { target: { value: "120" } });
@@ -58,12 +58,35 @@ describe("BottlePage", () => {
     await waitFor(() => {
       expect(feedApi.createSession).toHaveBeenCalledTimes(1);
     });
-    expect(feedApi.createSession).toHaveBeenCalledWith({
+    const payload = vi.mocked(feedApi.createSession).mock.calls[0][0];
+    expect(payload).toMatchObject({
       twin: "A",
       is_bottle: true,
       bottle_amount: 120,
       bottle_type: "formula",
-      events: [],
     });
+    expect(payload.created_at).toBeDefined();
+    expect(Number.isNaN(Date.parse(payload.created_at ?? ""))).toBe(false);
+  });
+
+  it("sends created_at derived from the time field", async () => {
+    render(<BottlePage />);
+    fireEvent.change(screen.getByLabelText(/^time$/i), {
+      target: { value: "2026-06-15T09:45" },
+    });
+    fireEvent.change(screen.getByLabelText(/amount \(ml\)/i), {
+      target: { value: "100" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: /record bottle feed/i }),
+    );
+    await waitFor(() => {
+      expect(feedApi.createSession).toHaveBeenCalledTimes(1);
+    });
+    expect(feedApi.createSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        created_at: new Date("2026-06-15T09:45").toISOString(),
+      }),
+    );
   });
 });
